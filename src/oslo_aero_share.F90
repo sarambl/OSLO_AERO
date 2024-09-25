@@ -14,6 +14,7 @@ module oslo_aero_share
   use physconst,      only: pi
   !smb++
   use spmd_utils,             only: masterproc
+  use cam_logfile,            only: iulog
   !smb--
   !
   implicit none
@@ -308,14 +309,14 @@ contains
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
     ! Namelist variables
-    real(r8) :: lifecyclenmr_1 = unset_r8 ! prescribed lifecycle of mode 1
-    real(r8) :: lifecyclenmr_8 = unset_r8 ! prescribed lifecycle of mode 8
+    real(r8) :: lifecyclenmr(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
+    !real(r8) :: lifecyclenmr_8 = unset_r8 ! prescribed lifecycle of mode 8
 
     ! Local variables
-    integer :: unitn, ierr
+    integer :: unitn, ierr,ind_mode
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
 
-    namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8
+    namelist /oslo_aero_share_nl/ lifecyclenmr
     !-----------------------------------------------------------------------------
 
     if (masterproc) then
@@ -324,25 +325,32 @@ contains
       if (ierr == 0) then
         read(unitn, oslo_aero_share_nl, iostat=ierr)
         if (ierr /= 0) then
-          WRITE(*,*) unitn,ierr
+          !WRITE(iulog,*) unitn,ierr ! include 'use iulog'
           call endrun(subname // ':: ERROR reading namelist')
         end if
       end if
       close(unitn)
     end if
-    call mpi_bcast(lifecyclenmr_1, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: microp_aero_bulk_scale")
-    call mpi_bcast(lifecyclenmr_8, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: microp_aero_npccn_scale")
+    call mpi_bcast(lifecyclenmr, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr")
+    !call mpi_bcast(lifecyclenmr_8, 1, mpi_real8, mstrid, mpicom, ierr)
+    ! if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_8")
 
-    lifeCycleNumberMedianRadius(1) = lifecyclenmr_1
-    lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
+    lifeCycleNumberMedianRadius(0:nmodes) = lifecyclenmr(0:nmodes)
+    !lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
 
-    if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
-    if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
-    WRITE(*,*) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
-    WRITE(*,*) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
-  end subroutine
+    do ind_mode = 0, nmodes
+      if(lifeCycleNumberMedianRadius(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(ind_mode) is not set")
+    end do
+    !if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
+    !if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
+    if (masterproc) then
+      ! add loop!
+      do ind_mode=0,nmodes
+          WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+      end do
+    end if
+  end subroutine oslo_aero_share_readnl
   !smb--
 
   function is_process_mode(l_index_in, isChemistry) result(answer)
