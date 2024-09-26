@@ -32,6 +32,11 @@ module oslo_aero_condtend
   use oslo_aero_share, only: chemistryIndex, physicsIndex, getNumberOfBackgroundTracersInMode
   use oslo_aero_share, only: externallyMixedMode, rBinMidpoint, getTracerIndex, getNumberOfTracersInMode, normnk
   use oslo_aero_share, only: numberToSurface, volumeToNumber, numberOfExternallyMixedModes
+  !smb++
+  use cam_abortutils, only: endrun
+  use spmd_utils,             only: masterproc
+  use cam_logfile,            only: iulog
+  !smb--
 
   implicit none
   private
@@ -39,7 +44,9 @@ module oslo_aero_condtend
   ! public routines
   public :: initializeCondensation
   public :: condtend
-
+  !smb++: adding namelist
+  public :: oslo_aero_condtend_readnl
+  !smb--
   ! private routines
   private :: aeronucl
   private :: appformrate
@@ -56,17 +63,77 @@ module oslo_aero_condtend
   integer , private :: cond_vap_map(N_COND_VAP)
 
   ! Assumed number of monolayers
-  real(r8), parameter, private :: n_so4_monolayers_age = 3.0_r8
-
+  !smb++ Adding namelist options (value overwritten in defaults)
+  !real(r8), parameter, private :: n_so4_monolayers_age = 3.0_r8
+  real(r8), protected, private :: n_so4_monolayers_age = 3.0_r8
+  real(r8), protected, private :: nucl_scaling_factor = 1.0_r8
+  !smb--
   ! thickness of the so4 monolayers (m)
   ! for so4(+nh4), use bi-sulfate mw and 1.77 g/cm3 as in MAM
-  real(r8), parameter, public :: dr_so4_monolayers_age = n_so4_monolayers_age * 4.76e-10_r8
+  !smb++ need to be changed due to added namelist option for n_so4_monolayers_age
+  ! now set in initializeCondensation below. 4.76e-10 is the thickness of a monolayer of H2SO4
+  ! also set it to private, because it's not used outside.
+  !real(r8), parameter, public :: dr_so4_monolayers_age = n_so4_monolayers_age * 4.76e-10_r8
+  real(r8), protected, private :: dr_so4_monolayers_age != n_so4_monolayers_age * 4.76e-10_r8
+  !smb--
+  !smb++
+  real(r8), parameter, private :: unset_r8 = huge(1.0_r8)
+  !smb--
 
 !===============================================================================
 contains
 !===============================================================================
 
-  subroutine initializeCondensation()
+    !smb++
+    subroutine oslo_aero_condtend_readnl(nlfile)
+
+        use namelist_utils, only: find_group_name
+        use spmd_utils,     only: mpicom, mstrid=>masterprocid, mpi_real8
+
+        character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
+
+        ! Namelist variables
+        real(r8) :: oslo_aero_n_so4_monolayers_age = unset_r8 ! number of so4 monolayers before particle counted as aged.
+        real(r8) :: oslo_aero_nucl_scaling_factor= unset_r8 ! nucleation rate scaling factors
+
+        ! Local variables
+        integer :: unitn, ierr,ind_mode
+        character(len=*), parameter :: subname = 'oslo_aero_condtend_nl'
+        namelist /oslo_aero_condtend_nl/ oslo_aero_n_so4_monolayers_age , oslo_aero_nucl_scaling_factor
+        !-----------------------------------------------------------------------------
+
+        if (masterproc) then
+            open(newunit=unitn, file=trim(nlfile), status='old' )
+            call find_group_name(unitn, 'oslo_aero_condtend_nl', status=ierr)
+            if (ierr == 0) then
+                read(unitn, oslo_aero_condtend_nl, iostat=ierr)
+                if (ierr /= 0) then
+                    !WRITE(iulog,*) unitn,ierr ! include 'use iulog'
+                    call endrun(subname // ':: ERROR reading namelist')
+                end if
+            end if
+            close(unitn)
+        end if
+        call mpi_bcast(oslo_aero_n_so4_monolayers_age, 1, mpi_real8, mstrid, mpicom, ierr)
+        if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_n_so4_monolayers_age")
+        n_so4_monolayers_age = oslo_aero_n_so4_monolayers_age
+        if(n_so4_monolayers_age == unset_r8) call endrun(subname//": FATAL: n_so4_monolayers_age is not set")
+        call mpi_bcast(oslo_aero_nucl_scaling_factor, 1, mpi_real8, mstrid, mpicom, ierr)
+        if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_n_so4_monolayers_age")
+        nucl_scaling_factor = oslo_aero_nucl_scaling_factor
+        if(nucl_scaling_factor == unset_r8) call endrun(subname//": FATAL: n_so4_monolayers_age is not set")
+
+        if (masterproc) then
+            ! add loop!
+            WRITE(iulog,*) 'oslo_aero_condtend_nl: n_so4_monolayers_age set from namelist=',n_so4_monolayers_age
+            WRITE(iulog,*) 'oslo_aero_condtend_nl: nucl_scaling_factor set from namelist=',nucl_scaling_factor
+        end if
+
+    end subroutine oslo_aero_condtend_readnl
+    !smb--
+
+
+    subroutine initializeCondensation()
 
     ! condensation coefficients:
     ! Theory: Poling et al, "The properties of gases and liquids"! 5th edition, eqn 11-4-4
@@ -109,7 +176,9 @@ contains
     integer  :: iDonor
     integer  :: l_donor
     !--------------------------------------------------
-
+    !smb++ Added here because n_so4_monolayers_age is now set as a namelist option
+    dr_so4_monolayers_age = n_so4_monolayers_age * 4.76e-10_r8
+    !smb--
     !These are the lifecycle-species which receive mass when
     !the externally mixed modes receive condensate,
     !e.g. the receiver of l_so4_n mass is the tracer l_so4_na
@@ -910,7 +979,12 @@ contains
 
        end do !horizontal points
     end do     !levels
-
+    !smb++ add scaling of nucleation rate
+    if (nucl_scaling_factor .ne. 1.0_r8) then
+       nuclrate_bin(:,:)=nuclrate_bin(:,:)*nuclrate_bin
+       nuclrate_pbl(:,:)=nuclrate_pbl(:,:)*nucl_scaling_factor
+    end if
+    !smb--
     !-- Calculate total nucleated mass
     do k=1,pver
        do i=1,ncol

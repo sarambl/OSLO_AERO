@@ -45,6 +45,7 @@ module aero_model
   use oslo_aero_share,          only: MODE_IDX_BC_NUC, MODE_IDX_BC_EXT_AC
   !smb++
   use oslo_aero_share,          only: oslo_aero_share_readnl
+  use oslo_aero_condtend,       only: oslo_aero_condtend_readnl
   !smb--
   use oslo_aero_control,        only: oslo_aero_ctl_readnl, use_aerocom
   use oslo_aero_depos,          only: oslo_aero_depos_init, oslo_aero_depos_readnl
@@ -128,13 +129,14 @@ contains
     if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factic_interstitial")
     call mpi_bcast(modal_strat_sulfate, 1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: modal_strat_sulfate")
-
+    !smb++
+    call oslo_aero_share_readnl(nlfilename)
+    call oslo_aero_condtend_readnl(nlfilename)
+    !smb --
     call oslo_aero_ctl_readnl(nlfilename)
     call oslo_aero_microp_readnl(nlfilename)
     call oslo_aero_depos_readnl(nlfilename)
-    !smb++
-    call oslo_aero_share_readnl(nlfilename)
-    !smb --
+
   end subroutine aero_model_readnl
 
   !=============================================================================

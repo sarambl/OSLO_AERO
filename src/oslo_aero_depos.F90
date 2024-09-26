@@ -60,6 +60,9 @@ module oslo_aero_depos
   ! namelist variabless
   real(r8), public, protected :: sol_facti_cloud_borne
   real(r8), public, protected :: f_act_conv_coarse_dust = huge(1.0_r8)
+  !smb++: added for namelist
+  real(r8), public, protected :: f_act_conv_interstitial = .8_r8 ! will be overwritten in namelist defaults
+  !smb--
 
   real(r8), parameter :: cmftau = 3600._r8
   real(r8), parameter :: rhoh2o = 1000._r8 ! density of water
@@ -98,6 +101,9 @@ module oslo_aero_depos
   integer :: nevapr_shcu_idx = 0
   integer :: nevapr_dpcu_idx = 0
   integer :: ixcldice, ixcldliq
+  !smb++
+  real(r8), parameter, private :: unset_r8 = huge(1.0_r8)
+  !smb--
 
 !===============================================================================
 contains
@@ -107,11 +113,15 @@ contains
    use namelist_utils, only: find_group_name
    character(len=*), intent(in) :: nlfile
 
+   ! Namelist variables
+   !smb++: added for namelist
+   real :: oslo_aero_f_act_conv_interstitial = unset_r8 ! prescribed lifecycle of modes
+    !smb--
    ! local variables
    integer :: unitn, ierr
    character(len=*), parameter :: subname='oslo_aero_depos_readnl'
    
-   namelist /oslo_aero_depos_nl/ f_act_conv_coarse_dust
+   namelist /oslo_aero_depos_nl/ f_act_conv_coarse_dust, oslo_aero_f_act_conv_interstitial
    !-----------------------------------------------------------------------
    
    if (masterproc) then
@@ -130,10 +140,19 @@ contains
    if (ierr /= mpi_success) call endrun(subname // ': mpi_bcast f_act_conv_coarse_dust')
 
    if (f_act_conv_coarse_dust == huge(1.0_r8)) call endrun(subname // ': ERROR f_act_conv_coarse_dust not set in namelist')
+   !smb++ added for namelist
+   call mpi_bcast(oslo_aero_f_act_conv_interstitial,1, mpi_real8,mstrid,mpicom, ierr)
+   if (ierr /= mpi_success) call endrun(subname // ': mpi_bcast oslo_aero_f_act_conv_interstitial')
 
+   f_act_conv_interstitial= oslo_aero_f_act_conv_interstitial
+   if (f_act_conv_interstitial == huge(1.0_r8)) call endrun(subname // ': ERROR f_act_conv_interstitial not set in namelist')
+   !smb--
 
    if (masterproc) then
       write(iulog,*) 'oslo_aero_depos_readnl: f_act_conv_coarse_dust = ', f_act_conv_coarse_dust
+      !smb++ added for namelist
+      write(iulog,*) 'oslo_aero_depos_readnl: f_act_conv_interstitial = ', f_act_conv_interstitial
+      !smb--
    end if
 
   end subroutine oslo_aero_depos_readnl
@@ -717,7 +736,10 @@ contains
              sol_factic = 0.4_r8      ! xl 2010/05/20
 
              !fxm: simplified relative to MAM
-             f_act_conv = 0.8 !ag: Introduce tuning per component later
+              !smb++ added namelist option for f_act_conv_interstitial
+             !f_act_conv = 0.8 !ag: Introduce tuning per component later
+              f_act_conv = f_act_conv_interstitial
+              !smb--
           else   ! cloud-borne aerosol (borne by stratiform cloud drops)
              !default 100 % is scavenged by cloud -borne
              sol_facti_cloud_borne = 1.0_r8

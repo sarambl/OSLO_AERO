@@ -125,13 +125,18 @@ module oslo_aero_share
   !real(r8), parameter :: lifeCycleNumberMedianRadius(0:nmodes) = &
   real(r8), protected :: lifeCycleNumberMedianRadius(0:nmodes) = &
   !smb-- change to protected to be able to use namelist options
+          ! NB: These are overwritten by the defaults.
        1.e-6_r8*(/ 0.0626_r8,                                               & !0
                    0.025_r8, 0.025_r8 , 0.04_r8,   0.06_r8,   0.075_r8,     & !1-5
                    0.22_r8,   0.63_r8,  0.0475_r8, 0.30_r8,   0.75_r8,  &    !6-10 Salter et al. (2015)
                    0.0118_r8, 0.024_r8, 0.04_r8  , 0.04_r8    /)             !11-14
 
   !Sigma based on original lifecycle code (taken from "sigmak" used previously in lifecycle code)
-  real(r8), parameter :: lifeCycleSigma(0:nmodes) =  &
+  !smb++ change to protected to be able to use namelist options
+  !real(r8), parameter :: lifeCycleSigma(0:nmodes) =  &
+  real(r8), protected :: lifeCycleSigma(0:nmodes) =  &
+  !smb-- change to protected to be able to use namelist options
+  ! NB: These are overwritten by the defaults.
        (/1.6_r8, 1.8_r8, 1.8_r8, 1.8_r8, 1.8_r8, &   !0-4
          1.59_r8, 1.59_r8, 2.0_r8,               &   !5,6,7 (SO4+dust)
          2.1_r8, 1.72_r8, 1.6_r8,                &   !8-10  (SS)     ! Salter et al. (2015)
@@ -309,14 +314,14 @@ contains
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
     ! Namelist variables
-    real(r8) :: lifecyclenmr(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
-    !real(r8) :: lifecyclenmr_8 = unset_r8 ! prescribed lifecycle of mode 8
+    real(r8) :: oslo_aero_lifecyclenumbermedianradius(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
+    real(r8) :: oslo_aero_lifecyclesigma(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
 
     ! Local variables
     integer :: unitn, ierr,ind_mode
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
 
-    namelist /oslo_aero_share_nl/ lifecyclenmr
+    namelist /oslo_aero_share_nl/ oslo_aero_lifecyclenumbermedianradius, oslo_aero_lifecyclesigma
     !-----------------------------------------------------------------------------
 
     if (masterproc) then
@@ -331,25 +336,27 @@ contains
       end if
       close(unitn)
     end if
-    call mpi_bcast(lifecyclenmr, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr")
-    !call mpi_bcast(lifecyclenmr_8, 1, mpi_real8, mstrid, mpicom, ierr)
-    ! if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_8")
+    call mpi_bcast(oslo_aero_lifecyclenumbermedianradius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclenumbermedianradius")
+    call mpi_bcast(oslo_aero_lifecyclesigma, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclesigma")
 
-    lifeCycleNumberMedianRadius(0:nmodes) = lifecyclenmr(0:nmodes)
-    !lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
+    lifeCycleNumberMedianRadius(0:nmodes) = oslo_aero_lifecyclenumbermedianradius(0:nmodes)
+    lifeCycleSigma(0:nmodes) = oslo_aero_lifecyclesigma(0:nmodes)
 
     do ind_mode = 0, nmodes
       if(lifeCycleNumberMedianRadius(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(ind_mode) is not set")
+      if(lifeCycleSigma(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleSigma(ind_mode) is not set")
     end do
-    !if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
-    !if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
+
     if (masterproc) then
       ! add loop!
       do ind_mode=0,nmodes
-          WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+        WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+        WRITE(iulog,*) 'lifeCycleSigma(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
       end do
     end if
+
   end subroutine oslo_aero_share_readnl
   !smb--
 
