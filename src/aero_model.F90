@@ -100,12 +100,12 @@ contains
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'aero_model_readnl'
 
-    namelist /aerosol_nl/ sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial, modal_strat_sulfate
+    namelist /aerosol_nl/ modal_strat_sulfate
     !-----------------------------------------------------------------------------
 
     ! Read namelist
     if (masterproc) then
-       open(newunit=unitn, file=trim(nlfilename), status='old' )
+       open(newunit=unitn, file=trim(nlfilename), status='old')
        call find_group_name(unitn, 'aerosol_nl', status=ierr)
        if (ierr == 0) then
           read(unitn, aerosol_nl, iostat=ierr)
@@ -115,13 +115,7 @@ contains
        end if
        close(unitn)
     end if
-    call mpi_bcast(sol_facti_cloud_borne, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_facti_cloud_borne")
-    call mpi_bcast(sol_factb_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factb_interstitial")
-    call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factic_interstitial")
-    call mpi_bcast(modal_strat_sulfate, 1, mpi_real8, mstrid, mpicom, ierr)
+    call mpi_bcast(modal_strat_sulfate, 1, mpi_logical, mstrid, mpicom, ierr)
     if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: modal_strat_sulfate")
 
     call oslo_aero_ctl_readnl(nlfilename)

@@ -13,9 +13,9 @@ module oslo_aero_share
   use physics_buffer, only: physics_buffer_desc, pbuf_get_field
   use physconst,      only: pi
   !smb++
-  use spmd_utils,             only: masterproc
+  use spmd_utils,     only: masterproc
   !smb--
-  use cam_logfile,             only: iulog
+  use cam_logfile,    only: iulog
   implicit none
   public          ! Make default type private to the module
 
@@ -320,7 +320,7 @@ contains
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
 
-    namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8, dst_density,
+    namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8, dst_density, &
     sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial   
   ! Namelist variables
 
@@ -328,11 +328,10 @@ contains
 
     if (masterproc) then
       open(newunit=unitn, file=trim(nlfile), status='old' )
-            call find_group_name(unitn, 'oslo_aero_share_nl', status=ierr)
+      call find_group_name(unitn, 'oslo_aero_share_nl', status=ierr)
       if (ierr == 0) then
         read(unitn, oslo_aero_share_nl, iostat=ierr)
         if (ierr /= 0) then
-          WRITE(*,*) unitn,ierr
           call endrun(subname // ':: ERROR reading namelist')
         end if
       end if
@@ -361,9 +360,12 @@ contains
     if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
     if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
     if (masterproc) then
-      write(*,iulog) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
-      write(*,iulog) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
-      write(*,iulog) 'aerosol_type_density(4) = ', aerosol_type_density(4)
+      write(iulog,*) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
+      write(iulog,*) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
+      write(iulog,*) 'aerosol_type_density(4) = ', aerosol_type_density(4)
+      write(iulog,*) 'sol_factb_interstitial = ', sol_factb_interstitial
+      write(iulog,*) 'sol_factic_interstitial = ', sol_factic_interstitial
+      write(iulog,*) 'sol_facti_cloud_borne = ', sol_facti_cloud_borne
     end if
     end subroutine
   !smb--
