@@ -33,6 +33,7 @@ module oslo_aero_depos
   use oslo_aero_share,         only: l_bc_ax, l_bc_ni, l_bc_ai, l_bc_a, l_bc_ac
   use oslo_aero_share,         only: l_bc_n, l_om_ni, l_om_ai, l_om_ac, l_dst_a2, l_dst_a3
   use oslo_aero_share,         only: l_ss_a2, l_ss_a3, l_so4_a2
+  use oslo_aero_share,         only: sol_factb_interstitial, sol_factic_interstitial, sol_facti_cloud_borne 
   use oslo_aero_dust_sediment, only: oslo_aero_dust_sediment_tend, oslo_aero_dust_sediment_vel
 
   implicit none
@@ -58,7 +59,6 @@ module oslo_aero_depos
   private :: clddiag     ! calc of cloudy volume and rain mixing ratio
   
   ! namelist variabless
-  real(r8), public, protected :: sol_facti_cloud_borne
   real(r8), public, protected :: f_act_conv_coarse_dust = huge(1.0_r8)
 
   real(r8), parameter :: cmftau = 3600._r8
@@ -709,18 +709,16 @@ contains
 
              scavcoefnv(:,:,1) = 0.1_r8  !Used by MAM for number concentration
 
-             sol_factb  = 0.1_r8   ! all below-cloud scav ON (0.1 "tuning factor")
+             sol_factb  = sol_factb_interstitial   ! all below-cloud scav ON (0.1 "tuning factor")
              ! sol_factb  = 0.03_r8   ! all below-cloud scav ON (0.1 "tuning factor")  ! tuned 1/6
 
              sol_facti  = 0.0_r8   ! strat  in-cloud scav totally OFF for institial
 
-             sol_factic = 0.4_r8      ! xl 2010/05/20
+             sol_factic = sol_factic_interstitial   ! xl 2010/05/20
 
              !fxm: simplified relative to MAM
              f_act_conv = 0.8 !ag: Introduce tuning per component later
           else   ! cloud-borne aerosol (borne by stratiform cloud drops)
-             !default 100 % is scavenged by cloud -borne
-             sol_facti_cloud_borne = 1.0_r8
 
              sol_factb  = 0.0_r8                ! all below-cloud scav OFF (anything cloud-borne is located "in-cloud")
              sol_facti  = sol_facti_cloud_borne ! strat  in-cloud scav cloud-borne tuning factor

@@ -86,11 +86,6 @@ module aero_model
   integer :: ndx_h2so4, ndx_soa_lv, ndx_soa_sv ! for surf_area_dens
   logical :: convproc_do_aer
 
-  ! Namelist variables
-  real(r8) :: sol_facti_cloud_borne   = 1._r8
-  real(r8) :: sol_factb_interstitial  = 0.1_r8
-  real(r8) :: sol_factic_interstitial = 0.4_r8
-
 !=============================================================================
 contains
 !=============================================================================

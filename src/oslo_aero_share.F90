@@ -15,7 +15,7 @@ module oslo_aero_share
   !smb++
   use spmd_utils,             only: masterproc
   !smb--
-  !
+  use cam_logfile,             only: iulog
   implicit none
   public          ! Make default type private to the module
 
@@ -296,6 +296,10 @@ module oslo_aero_share
   real(r8), parameter, private :: unset_r8 = huge(1.0_r8)
   !smb--
 
+  real(r8),protected :: sol_facti_cloud_borne   = 1._r8
+  real(r8),protected :: sol_factb_interstitial  = 0.1_r8
+  real(r8),protected :: sol_factic_interstitial = 0.4_r8
+
 !===============================================================================
 contains
 !===============================================================================
@@ -310,12 +314,16 @@ contains
     ! Namelist variables
     real(r8) :: lifecyclenmr_1 = unset_r8 ! prescribed lifecycle of mode 1
     real(r8) :: lifecyclenmr_8 = unset_r8 ! prescribed lifecycle of mode 8
+    real(r8) :: dst_density = unset_r8
 
     ! Local variables
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
 
-    namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8
+    namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8, dst_density,
+    sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial   
+  ! Namelist variables
+
     !-----------------------------------------------------------------------------
 
     if (masterproc) then
@@ -331,21 +339,33 @@ contains
       close(unitn)
     end if
     call mpi_bcast(lifecyclenmr_1, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: microp_aero_bulk_scale")
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_1")
     call mpi_bcast(lifecyclenmr_8, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: microp_aero_npccn_scale")
-
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_8")
+    call mpi_bcast(dst_density, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: dst_density")
+    call mpi_bcast(sol_facti_cloud_borne, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_facti_cloud_borne")
+    call mpi_bcast(sol_factb_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_factb_interstitial")
+    call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_factic_interstitial")
     lifeCycleNumberMedianRadius(1) = lifecyclenmr_1
     lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
+    if (dst_density /= unset_r8) aerosol_type_density(4) = dst_density
 
     call mpi_bcast(lifeCycleNumberMedianRadius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifeCycleNumberMedianRadius")
-
+    call mpi_bcast(aerosol_type_density, N_AEROSOL_TYPES, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: aerosol_type_density")
     if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
     if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
-    WRITE(*,*) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
-    WRITE(*,*) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
-  end subroutine
+    if (masterproc) then
+      write(*,iulog) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
+      write(*,iulog) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
+      write(*,iulog) 'aerosol_type_density(4) = ', aerosol_type_density(4)
+    end if
+    end subroutine
   !smb--
 
   function is_process_mode(l_index_in, isChemistry) result(answer)
