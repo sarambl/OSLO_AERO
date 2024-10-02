@@ -338,6 +338,9 @@ contains
     lifeCycleNumberMedianRadius(1) = lifecyclenmr_1
     lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
 
+    call mpi_bcast(lifeCycleNumberMedianRadius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifeCycleNumberMedianRadius")
+
     if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
     if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
     WRITE(*,*) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
