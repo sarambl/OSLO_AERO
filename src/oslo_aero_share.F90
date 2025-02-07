@@ -13,7 +13,8 @@ module oslo_aero_share
   use physics_buffer, only: physics_buffer_desc, pbuf_get_field
   use physconst,      only: pi
   !smb++
-  use spmd_utils,     only: masterproc
+  use spmd_utils,             only: masterproc
+  use cam_logfile,            only: iulog
   !smb--
   use cam_logfile,    only: iulog
   implicit none
@@ -124,13 +125,18 @@ module oslo_aero_share
   !real(r8), parameter :: lifeCycleNumberMedianRadius(0:nmodes) = &
   real(r8), protected :: lifeCycleNumberMedianRadius(0:nmodes) = &
   !smb-- change to protected to be able to use namelist options
+          ! NB: These are overwritten by the defaults.
        1.e-6_r8*(/ 0.0626_r8,                                               & !0
                    0.025_r8, 0.025_r8 , 0.04_r8,   0.06_r8,   0.075_r8,     & !1-5
                    0.22_r8,   0.63_r8,  0.0475_r8, 0.30_r8,   0.75_r8,  &    !6-10 Salter et al. (2015)
                    0.0118_r8, 0.024_r8, 0.04_r8  , 0.04_r8    /)             !11-14
 
   !Sigma based on original lifecycle code (taken from "sigmak" used previously in lifecycle code)
-  real(r8), parameter :: lifeCycleSigma(0:nmodes) =  &
+  !smb++ change to protected to be able to use namelist options
+  !real(r8), parameter :: lifeCycleSigma(0:nmodes) =  &
+  real(r8), protected :: lifeCycleSigma(0:nmodes) =  &
+  !smb-- change to protected to be able to use namelist options
+  ! NB: These are overwritten by the defaults.
        (/1.6_r8, 1.8_r8, 1.8_r8, 1.8_r8, 1.8_r8, &   !0-4
          1.59_r8, 1.59_r8, 2.0_r8,               &   !5,6,7 (SO4+dust)
          2.1_r8, 1.72_r8, 1.6_r8,                &   !8-10  (SS)     ! Salter et al. (2015)
@@ -315,14 +321,16 @@ contains
     real(r8) :: lifecyclenmr_1 = unset_r8 ! prescribed lifecycle of mode 1
     real(r8) :: lifecyclenmr_8 = unset_r8 ! prescribed lifecycle of mode 8
     real(r8) :: dst_density = unset_r8
+    real(r8) :: oslo_aero_lifecyclenumbermedianradius(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
+    real(r8) :: oslo_aero_lifecyclesigma(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
 
     ! Local variables
-    integer :: unitn, ierr
+    integer :: unitn, ierr,ind_mode
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
-
+    ! Namelist variables
     namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8, dst_density, &
-    sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial   
-  ! Namelist variables
+    sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial, oslo_aero_lifecyclenumbermedianradius, & 
+    oslo_aero_lifecyclesigma   
 
     !-----------------------------------------------------------------------------
 
@@ -332,11 +340,13 @@ contains
       if (ierr == 0) then
         read(unitn, oslo_aero_share_nl, iostat=ierr)
         if (ierr /= 0) then
+          !WRITE(iulog,*) unitn,ierr ! include 'use iulog'
           call endrun(subname // ':: ERROR reading namelist')
         end if
       end if
       close(unitn)
     end if
+
     call mpi_bcast(lifecyclenmr_1, 1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_1")
     call mpi_bcast(lifecyclenmr_8, 1, mpi_real8, mstrid, mpicom, ierr)
@@ -349,16 +359,24 @@ contains
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_factb_interstitial")
     call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_factic_interstitial")
+
+    call mpi_bcast(oslo_aero_lifecyclenumbermedianradius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclenumbermedianradius")
+    call mpi_bcast(oslo_aero_lifecyclesigma, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclesigma")
+
     lifeCycleNumberMedianRadius(1) = lifecyclenmr_1
     lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
     if (dst_density /= unset_r8) aerosol_type_density(4) = dst_density
-
     call mpi_bcast(lifeCycleNumberMedianRadius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifeCycleNumberMedianRadius")
     call mpi_bcast(aerosol_type_density, N_AEROSOL_TYPES, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: aerosol_type_density")
     if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
     if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
+    lifeCycleNumberMedianRadius(0:nmodes) = oslo_aero_lifecyclenumbermedianradius(0:nmodes)
+    lifeCycleSigma(0:nmodes) = oslo_aero_lifecyclesigma(0:nmodes)
+
     if (masterproc) then
       write(iulog,*) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
       write(iulog,*) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
@@ -366,8 +384,19 @@ contains
       write(iulog,*) 'sol_factb_interstitial = ', sol_factb_interstitial
       write(iulog,*) 'sol_factic_interstitial = ', sol_factic_interstitial
       write(iulog,*) 'sol_facti_cloud_borne = ', sol_facti_cloud_borne
+      do ind_mode=0,nmodes
+         WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+         WRITE(iulog,*) 'lifeCycleSigma(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+      end do
     end if
-    end subroutine
+
+    do ind_mode = 0, nmodes
+      if(lifeCycleNumberMedianRadius(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(ind_mode) is not set")
+      if(lifeCycleSigma(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleSigma(ind_mode) is not set")
+    end do
+
+
+   end subroutine oslo_aero_share_readnl
   !smb--
 
   function is_process_mode(l_index_in, isChemistry) result(answer)
