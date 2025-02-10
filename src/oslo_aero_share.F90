@@ -318,8 +318,6 @@ contains
     character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
 
     ! Namelist variables
-    real(r8) :: lifecyclenmr_1 = unset_r8 ! prescribed lifecycle of mode 1
-    real(r8) :: lifecyclenmr_8 = unset_r8 ! prescribed lifecycle of mode 8
     real(r8) :: dst_density = unset_r8
     real(r8) :: oslo_aero_lifecyclenumbermedianradius(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
     real(r8) :: oslo_aero_lifecyclesigma(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
@@ -328,9 +326,7 @@ contains
     integer :: unitn, ierr,ind_mode
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
     ! Namelist variables
-    namelist /oslo_aero_share_nl/ lifecyclenmr_1, lifecyclenmr_8, dst_density, &
-    sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial, oslo_aero_lifecyclenumbermedianradius, & 
-    oslo_aero_lifecyclesigma   
+    namelist /oslo_aero_share_nl/ dst_density, oslo_aero_lifecyclenumbermedianradius, oslo_aero_lifecyclesigma   
 
     !-----------------------------------------------------------------------------
 
@@ -347,43 +343,19 @@ contains
       close(unitn)
     end if
 
-    call mpi_bcast(lifecyclenmr_1, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_1")
-    call mpi_bcast(lifecyclenmr_8, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifecyclenmr_8")
     call mpi_bcast(dst_density, 1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: dst_density")
-    call mpi_bcast(sol_facti_cloud_borne, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_facti_cloud_borne")
-    call mpi_bcast(sol_factb_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_factb_interstitial")
-    call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: sol_factic_interstitial")
-
     call mpi_bcast(oslo_aero_lifecyclenumbermedianradius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclenumbermedianradius")
     call mpi_bcast(oslo_aero_lifecyclesigma, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclesigma")
-
-    lifeCycleNumberMedianRadius(1) = lifecyclenmr_1
-    lifeCycleNumberMedianRadius(8) = lifecyclenmr_8
     if (dst_density /= unset_r8) aerosol_type_density(4) = dst_density
-    call mpi_bcast(lifeCycleNumberMedianRadius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: lifeCycleNumberMedianRadius")
-    call mpi_bcast(aerosol_type_density, N_AEROSOL_TYPES, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: aerosol_type_density")
-    if(lifeCycleNumberMedianRadius(1) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(1) is not set")
-    if(lifeCycleNumberMedianRadius(8) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(8) is not set")
+
     lifeCycleNumberMedianRadius(0:nmodes) = oslo_aero_lifecyclenumbermedianradius(0:nmodes)
     lifeCycleSigma(0:nmodes) = oslo_aero_lifecyclesigma(0:nmodes)
 
     if (masterproc) then
-      write(iulog,*) 'lifeCycleNumberMedianRadius(1) = ', lifeCycleNumberMedianRadius(1)
-      write(iulog,*) 'lifeCycleNumberMedianRadius(8) = ', lifeCycleNumberMedianRadius(8)
-      write(iulog,*) 'aerosol_type_density(4) = ', aerosol_type_density(4)
-      write(iulog,*) 'sol_factb_interstitial = ', sol_factb_interstitial
-      write(iulog,*) 'sol_factic_interstitial = ', sol_factic_interstitial
-      write(iulog,*) 'sol_facti_cloud_borne = ', sol_facti_cloud_borne
+      write(iulog,*) 'dst_density = ', dst_density
       do ind_mode=0,nmodes
          WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
          WRITE(iulog,*) 'lifeCycleSigma(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog

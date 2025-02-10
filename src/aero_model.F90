@@ -87,6 +87,12 @@ module aero_model
   integer :: ndx_h2so4, ndx_soa_lv, ndx_soa_sv ! for surf_area_dens
   logical :: convproc_do_aer
 
+  ! Namelist variables
+  real(r8) :: sol_facti_cloud_borne   = 1._r8
+  real(r8) :: sol_factb_interstitial  = 0.1_r8
+  real(r8) :: sol_factic_interstitial = 0.4_r8
+
+
 !=============================================================================
 contains
 !=============================================================================
@@ -101,7 +107,7 @@ contains
     integer :: unitn, ierr
     character(len=*), parameter :: subname = 'aero_model_readnl'
 
-    namelist /aerosol_nl/ modal_strat_sulfate
+    namelist /aerosol_nl/ modal_strat_sulfate, sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial
     !-----------------------------------------------------------------------------
 
     ! Read namelist
@@ -118,6 +124,14 @@ contains
     end if
     call mpi_bcast(modal_strat_sulfate, 1, mpi_logical, mstrid, mpicom, ierr)
     if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: modal_strat_sulfate")
+    call mpi_bcast(sol_facti_cloud_borne, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_facti_cloud_borne")
+    call mpi_bcast(sol_factb_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factb_interstitial")
+    call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factic_interstitial")
+    call mpi_bcast(modal_strat_sulfate, 1, mpi_real8, mstrid, mpicom, ierr)
+
     !smb++
     call oslo_aero_share_readnl(nlfilename)
     call oslo_aero_condtend_readnl(nlfilename)
