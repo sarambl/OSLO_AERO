@@ -17,6 +17,7 @@ module oslo_aero_share
   use cam_logfile,            only: iulog
   !smb--
   use cam_logfile,    only: iulog
+  use spmd_utils,               only: mpi_logical, mpi_real8, mpi_character, mpi_integer,  mpi_success
   implicit none
   public          ! Make default type private to the module
 
@@ -302,6 +303,7 @@ module oslo_aero_share
   real(r8), parameter, private :: unset_r8 = huge(1.0_r8)
   !smb--
 
+ ! Namelist variables
   real(r8),protected :: sol_facti_cloud_borne   = 1._r8
   real(r8),protected :: sol_factb_interstitial  = 0.1_r8
   real(r8),protected :: sol_factic_interstitial = 0.4_r8
@@ -319,6 +321,7 @@ contains
 
     ! Namelist variables
     real(r8) :: dst_density = unset_r8
+    real(r8) :: dst_solfact = unset_r8
     real(r8) :: oslo_aero_lifecyclenumbermedianradius(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
     real(r8) :: oslo_aero_lifecyclesigma(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
 
@@ -326,7 +329,8 @@ contains
     integer :: unitn, ierr,ind_mode
     character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
     ! Namelist variables
-    namelist /oslo_aero_share_nl/ dst_density, oslo_aero_lifecyclenumbermedianradius, oslo_aero_lifecyclesigma   
+    namelist /oslo_aero_share_nl/ dst_density, oslo_aero_lifecyclenumbermedianradius, oslo_aero_lifecyclesigma, dst_solfact, &
+    sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial   
 
     !-----------------------------------------------------------------------------
 
@@ -342,20 +346,33 @@ contains
       end if
       close(unitn)
     end if
-
+    call mpi_bcast(dst_solfact,1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: dst_solfact")
     call mpi_bcast(dst_density, 1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: dst_density")
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: dst_density")
     call mpi_bcast(oslo_aero_lifecyclenumbermedianradius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclenumbermedianradius")
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclenumbermedianradius")
     call mpi_bcast(oslo_aero_lifecyclesigma, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
-    if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclesigma")
-    if (dst_density /= unset_r8) aerosol_type_density(4) = dst_density
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclesigma")
+    call mpi_bcast(sol_facti_cloud_borne, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_facti_cloud_borne")
+    call mpi_bcast(sol_factb_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factb_interstitial")
+    call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factic_interstitial")
 
+
+    if (dst_density /= unset_r8) aerosol_type_density(4) = dst_density
+    if (dst_solfact /= unset_r8) aerosol_type_soluble_mass_fraction(4) = dst_solfact
     lifeCycleNumberMedianRadius(0:nmodes) = oslo_aero_lifecyclenumbermedianradius(0:nmodes)
     lifeCycleSigma(0:nmodes) = oslo_aero_lifecyclesigma(0:nmodes)
 
     if (masterproc) then
       write(iulog,*) 'dst_density = ', dst_density
+      write(iulog,*) 'dst_solfact = ', dst_solfact
+      write(iulog,*) 'sol_facti_cloud_borne = ', sol_facti_cloud_borne
+      write(iulog,*) 'sol_factb_interstitial = ', sol_factb_interstitial
+      write(iulog,*) 'sol_factic_interstitial = ', sol_factic_interstitial
       do ind_mode=0,nmodes
          WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
          WRITE(iulog,*) 'lifeCycleSigma(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
