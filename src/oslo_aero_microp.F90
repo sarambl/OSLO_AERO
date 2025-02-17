@@ -76,6 +76,8 @@ module oslo_aero_microp
   ! namelist parameters
   real(r8), protected :: wsub_min  ! minimum sub-grid vertical velocity (liquid) before scale factor
   real(r8), protected :: wsubi_min ! minimum sub-grid vertical velocity (ice)
+  real(r8), protected :: wsub_scale ! sub-grid vertical velocity (liquid) scale factor
+  real(r8), protected :: wsubi_scale ! sub-grid vertical velocity (ice) scale factor
 
   integer :: npccn_idx, rndst_idx, nacon_idx
 
@@ -93,12 +95,15 @@ contains
     ! Namelist variables
     real(r8) :: microp_aero_bulk_scale  = 2._r8    ! prescribed aerosol bulk sulfur scale factor
 
-    ! NOTE: the following are not currently used - but are needed to have the namelist work in cam
-    real(r8) :: microp_aero_npccn_scale = unset_r8 ! prescribed aerosol bulk sulfur scale factor 
-    real(r8) :: microp_aero_wsub_scale  = unset_r8 ! subgrid vertical velocity (liquid) scale factor
-    real(r8) :: microp_aero_wsubi_scale = unset_r8 ! subgrid vertical velocity (ice) scale factor
     real(r8) :: microp_aero_wsub_min    = unset_r8 ! subgrid vertical velocity (liquid) minimum
     real(r8) :: microp_aero_wsubi_min   = unset_r8 ! subgrid vertical velocity (ice) minimum
+    real(r8) :: microp_aero_wsub_scale  = unset_r8 ! subgrid vertical velocity (liquid) scale factor
+    real(r8) :: microp_aero_wsubi_scale = unset_r8 ! subgrid vertical velocity (ice) scale factor
+
+    ! Note the following are not used in the current version of the code, but needed for CAM namelist to work
+    real(r8) :: microp_aero_npccn_scale = unset_r8 ! prescribed aerosol bulk sulfur scale factor 
+
+
 
     ! Local variables
     integer :: unitn, ierr
@@ -134,9 +139,13 @@ contains
 
     wsub_min = microp_aero_wsub_min
     wsubi_min = microp_aero_wsubi_min
+    wsub_scale = microp_aero_wsub_scale
+    wsubi_scale = microp_aero_wsubi_scale
 
     if(wsub_min == unset_r8) call endrun(subname//": FATAL: wsub_min is not set")
     if(wsubi_min == unset_r8) call endrun(subname//": FATAL: wsubi_min is not set")
+    if(wsub_scale == unset_r8) call endrun(subname//": FATAL: wsub_scale is not set")
+    if(wsubi_scale == unset_r8) call endrun(subname//": FATAL: wsubi_scale is not set")
     ! set local variables
     bulk_scale = microp_aero_bulk_scale
 
@@ -359,11 +368,11 @@ contains
              wsub(i,k)  = dum
           end select
 
-          wsubi(i,k) = max(wsubi_min, wsub(i,k))
+          wsubi(i,k) = max(wsubi_min, wsub(i,k)) * wsubi_scale
           if (.not. use_preexisting_ice) then
              wsubi(i,k) = min(wsubi(i,k), 0.2_r8)
           endif
-          wsub(i,k)  = max(wsub_min, wsub(i,k))
+          wsub(i,k)  = max(wsub_min, wsub(i,k)) * wsub_scale
 
        end do
     end do
