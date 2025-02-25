@@ -157,10 +157,10 @@ contains
     call init_interp_constants() ! table initialization constants
     call initopt()               ! table initialization
     call initlogn()              ! table initialization
-    if (use_aerocom) then
-       call initdry()               ! table initialization
-       call initaeropt()            ! table initialization
-    end if
+#ifdef AEROCOM
+    call initdry()               ! table initialization
+    call initaeropt()            ! table initialization
+#endif
     call initializeCondensation()
     call oslo_aero_ocean_init()
     call oslo_aero_depos_init(pbuf2d)
