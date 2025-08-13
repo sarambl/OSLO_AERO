@@ -106,7 +106,6 @@ contains
     character(len=32)  :: tmpname_cw
     character(len=128) :: long_name
     character(len=8)   :: unit
-    logical            :: history_amwg ! output the variables used by the AMWG diag package
     character(len=10)  :: modeString
     character(len=20)  :: varname
     !-------------------------------------------------------------------------------
@@ -192,7 +191,7 @@ contains
 
     ! Add dropmixnuc tendencies for all modal aerosol species
 
-    call phys_getopts(history_amwg_out=history_amwg, history_aerosol_out=history_aerosol)
+    call phys_getopts(history_aerosol_out=history_aerosol)
 
     n_aerosol_tracers = getNumberOfAerosolTracers()
     call fillAerosolTracerList(aerosolTracerList)
@@ -1462,13 +1461,11 @@ contains
     call outfld('NDROPMIX', ndropmix(:ncol,:), ncol, lchnk)
     call outfld('WTKE    ', wtke(:ncol,:),     ncol, lchnk)
 
-    if (history_aerosol) then
-       call ccncalc_oslo(state, pbuf, cs, hasAerosol, numberConcentration, volumeConcentration, &
-            hygroscopicity, lnSigma, ccn)
-       do isat = 1, psat
-          call outfld(ccn_name(isat), ccn(:,:,isat), pcols, lchnk)
-       enddo
-    end if
+   call ccncalc_oslo(state, pbuf, cs, hasAerosol, numberConcentration, volumeConcentration, &
+      hygroscopicity, lnSigma, ccn)
+   do isat = 1, psat
+      call outfld(ccn_name(isat), ccn(:,:,isat), pcols, lchnk)
+   enddo
 
     tendencyCounted(:)=.FALSE.
     do imode = 1, ntot_amode
