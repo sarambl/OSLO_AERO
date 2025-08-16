@@ -1464,7 +1464,7 @@ contains
    call ccncalc_oslo(state, pbuf, cs, hasAerosol, numberConcentration, volumeConcentration, &
       hygroscopicity, lnSigma, ccn)
    do isat = 1, psat
-      call outfld(ccn_name(isat), ccn(:,:,isat), pcols, lchnk)
+      call outfld(ccn_name(isat), ccn(:ncol,:,isat), ncol, lchnk)
    enddo
 
     tendencyCounted(:)=.FALSE.
