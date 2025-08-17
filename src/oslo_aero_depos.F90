@@ -564,9 +564,9 @@ contains
             ! accumulate the deposition flux for the aerosol type
             ! All will have a version without weighted sum, that is ...DDF
             ! sulfate will have a version with weighted sum, that is ...SDDF
-            sflx_DDF_arosol_type(:, aerosolType(itrac)) = sflx_DDF_arosol_type(:, aerosolType(itrac)) + sflx(:ncol)
+            sflx_DDF_arosol_type(:ncol, aerosolType(itrac)) = sflx_DDF_arosol_type(:ncol, aerosolType(itrac)) + sflx(:ncol)
             if ( aerosolType(itrac) ==  AEROSOL_TYPE_SULFATE ) then
-               sflx_DDF_SULFATE_S(:) = sflx_DDF_SULFATE_S(:) + ( sflx(:ncol) * sulfurMassFraction(itrac) )
+               sflx_DDF_SULFATE_S(:ncol) = sflx_DDF_SULFATE_S(:ncol) + ( sflx(:ncol) * sulfurMassFraction(itrac) )
             endif
 
           enddo   ! lspec = 0, nspec_amode(imode)+1
@@ -717,9 +717,6 @@ contains
           ! sol_factic is strictly a tuning factor
           !
           if (lphase == 1) then   ! interstial aerosol
-             !hygro_sum_old(:,:) = 0.0_r8
-             !hygro_sum_del(:,:) = 0.0_r8
-             !call modal_aero_bcscavcoef_get( m, ncol, isprx, dgncur_awet, scavcoefnv(:,:,1), scavcoefnv(:,:,2) )
 
              scavcoefnv(:,:,1) = 0.1_r8  !Used by MAM for number concentration
 
@@ -945,9 +942,9 @@ contains
 
             ! accumulate the deposition flux for the aerosol type, aerosol mass
             ! if it is sulfate we accumulate in sflx_SFWET_SULFATE_S in addition
-            sflx_SFWET_arosol_type(:, aerosolType(itrac)) = sflx_SFWET_arosol_type(:, aerosolType(itrac)) + sflx(:ncol)
+            sflx_SFWET_arosol_type(:ncol, aerosolType(itrac)) = sflx_SFWET_arosol_type(:ncol, aerosolType(itrac)) + sflx(:ncol)
             if ( aerosolType(itrac) == AEROSOL_TYPE_SULFATE ) then
-               sflx_SFWET_SULFATE_S(:) = sflx_SFWET_SULFATE_S(:) + ( sflx(:ncol) * sulfurMassFraction(itrac) )
+               sflx_SFWET_SULFATE_S(:ncol) = sflx_SFWET_SULFATE_S(:ncol) + ( sflx(:ncol) * sulfurMassFraction(itrac) )
             endif
 
           enddo   ! lspec = 0, nspec_amode(imode)+1

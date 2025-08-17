@@ -13,6 +13,7 @@ module oslo_aero_coag
   use mo_constants,   only: pi
   use physconst,      only: rair, gravit
   use cam_history,    only: addfld, add_default, fieldname_len, horiz_only, outfld
+  use spmd_utils,     only: masterproc
   use cam_logfile,    only: iulog
   !
   use oslo_aero_share, only: nmodes, max_tracers_per_mode
@@ -288,8 +289,11 @@ contains
     else
        tableindexcloud=nsiz
     end if
-    write(iulog,*) 'Assumed droplet size and table bin number for cloud  &
-         coagulation ',rcoagdroplet, ' nbin ',tableindexcloud,'binmid',rBinMidPoint(tableindexcloud)
+    if (masterproc) then
+       write(iulog,*) 'Assumed droplet size and table bin number for ',       &
+            'cloud  & coagulation ', rcoagdroplet, ' nbin ', tableindexcloud, &
+            'binmid', rBinMidPoint(tableindexcloud)
+    end if
 
     do iCoagulatingMode = 1, numberOfCoagulatingModes
        modeIndexCoagulator = coagulatingMode(iCoagulatingMode) !Index of the coagulating mode
