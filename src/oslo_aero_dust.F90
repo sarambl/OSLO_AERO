@@ -37,7 +37,6 @@ module oslo_aero_dust
    character(len=6), public :: dust_names(10)
 
    integer , parameter :: numberOfDustModes = 2  !define in oslo_aero_share?
-   real(r8), parameter :: emis_fraction_in_mode(numberOfDustModes) = (/0.13_r8, 0.87_r8 /)
    integer             :: tracerMap(numberOfDustModes) = (/-99, -99/) !index of dust tracers in the modes
 
    integer , parameter, public :: dust_nbin = numberOfDustModes
@@ -51,6 +50,8 @@ module oslo_aero_dust
 
    real(r8), parameter ::  d2r  = pi/180._r8                 ! radians to degrees
 
+   real(r8) :: emis_fact_in_coarse_mode = unset_r8  ! tuning parameter for distribution of dust emissions between modes
+   real(r8), public :: emis_fraction_in_mode(numberOfDustModes) 
 
 !=============================================================================
 contains
@@ -67,7 +68,7 @@ contains
       integer                     :: unitn, ierr
       character(len=*), parameter :: subname = 'dust_readnl'
 
-      namelist /dust_nl/ dust_emis_fact, soil_erod_file
+      namelist /dust_nl/ dust_emis_fact, soil_erod_file,  emis_fact_in_coarse_mode  
       !---------------------------------------------------------------------------
 
       ! Read namelist
@@ -93,14 +94,24 @@ contains
       if (ierr /= mpi_success) then
          call endrun(subname//" mpi_bcast: soil_erod_file")
       end if
-
+      call mpi_bcast(emis_fact_in_coarse_mode, 1, mpi_real8, mstrid, &
+             mpicom, ierr)
+      if (ierr /= mpi_success) then
+         call endrun(subname//" mpi_bcast: emis_fact_in_coarse_mode")  
+      end if
+      
+      if (emis_fact_in_coarse_mode == unset_r8) then 
+         call endrun(subname//" emis_fact_in_coarse_mode not set")
+      endif
       call shr_dust_emis_readnl(mpicom, 'drv_flds_in')
 
       if ((soil_erod_file /= 'none') .and. &
            (.not. is_zender_soil_erod_from_atm())) then
          call endrun(subname//': should not specify soil_erod_file if Zender soil erosion is not in CAM')
       end if
-
+      
+      emis_fraction_in_mode = (/1.0_r8-emis_fact_in_coarse_mode, emis_fact_in_coarse_mode /)
+      
       if (masterproc) then
          if (is_dust_emis_zender()) then
             write(iulog,*) subname,': Zender_2003 dust emission method is being used.'
@@ -112,6 +123,7 @@ contains
          else
             write(iulog,*) subname,': Leung_2023 dust emission method is being used.'
          end if
+         write(iulog,*) 'emis_fact_in_coarse_mode = ', emis_fact_in_coarse_mode
       end if
 
    end subroutine oslo_aero_dust_readnl
