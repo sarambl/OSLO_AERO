@@ -72,6 +72,11 @@ module oslo_aero_microp
 
   ! prescribed aerosol bulk sulfur scale factor
   real(r8) :: bulk_scale
+    ! namelist parameters
+  real(r8), protected :: wsub_min  ! minimum sub-grid vertical velocity (liquid) before scale factor
+  real(r8), protected :: wsubi_min ! minimum sub-grid vertical velocity (ice)
+  real(r8), protected :: wsub_scale ! sub-grid vertical velocity (liquid) scale factor
+  real(r8), protected :: wsubi_scale ! sub-grid vertical velocity (ice) scale factor
 
   integer :: npccn_idx, rndst_idx, nacon_idx
 
@@ -130,6 +135,17 @@ contains
     if (ierr /= 0) call endrun(subname//": FATAL: mpi_bcast: microp_aero_wsubi_min")
 
     ! set local variables
+
+    wsub_min = microp_aero_wsub_min
+    wsubi_min = microp_aero_wsubi_min
+    wsub_scale = microp_aero_wsub_scale
+    wsubi_scale = microp_aero_wsubi_scale
+
+    if(wsub_min == unset_r8) call endrun(subname//": FATAL: wsub_min is not set")
+    if(wsubi_min == unset_r8) call endrun(subname//": FATAL: wsubi_min is not set")
+    if(wsub_scale == unset_r8) call endrun(subname//": FATAL: wsub_scale is not set")
+    if(wsubi_scale == unset_r8) call endrun(subname//": FATAL: wsubi_scale is not set")
+
     bulk_scale = microp_aero_bulk_scale
 
     call nucleate_ice_oslo_readnl(nlfile)
@@ -332,8 +348,8 @@ contains
     end select
 
     ! Set minimum values above top_lev.
-    wsub(:ncol,:top_lev-1)  = 0.20_r8
-    wsubi(:ncol,:top_lev-1) = 0.001_r8
+    wsub(:ncol,:top_lev-1)  = wsub_min
+    wsubi(:ncol,:top_lev-1) = wsubi_min
 
     do ilev = top_lev, pver
        do icol = 1, ncol
@@ -353,11 +369,11 @@ contains
              wsub(icol,ilev)  = dum
           end select
 
-          wsubi(icol,ilev) = max(0.001_r8, wsub(icol,ilev))
+          wsubi(icol,ilev) = max(wsubi_min, wsub(icol,ilev)) * wsubi_scale
           if (.not. use_preexisting_ice) then
              wsubi(icol,ilev) = min(wsubi(icol,ilev), 0.2_r8)
           endif
-          wsub(icol,ilev)  = max(0.20_r8, wsub(icol,ilev))
+          wsub(icol,ilev)  = max(wsub_max, wsub(icol,ilev)) * wsub_scale
 
        end do
     end do
