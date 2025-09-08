@@ -7,6 +7,8 @@ module oslo_aero_depos
   !------------------------------------------------------------------------------------------------
 
   use shr_kind_mod,            only: r8 => shr_kind_r8
+  use spmd_utils,              only: mpicom, mstrid=>masterprocid, masterproc
+  use spmd_utils,              only: mpi_logical, mpi_real8, mpi_character, mpi_integer,  mpi_success
   use ppgrid,                  only: pcols, pver, pverp, begchunk, endchunk
   use constituents,            only: pcnst, cnst_name, cnst_get_ind
   use phys_control,            only: phys_getopts, cam_physpkg_is
@@ -112,6 +114,64 @@ contains
       ! Register a pbuf field for
       call pbuf_add_field('WD_A_H2SO4', 'global', dtype_r8, (/pcols/), idx_wd_a_h2so4)
    end subroutine oslo_aero_depos_register
+
+  subroutine oslo_aero_depos_readnl(nlfile)
+   
+   use namelist_utils, only: find_group_name
+   character(len=*), intent(in) :: nlfile
+
+   ! Namelist variables
+   real :: oslo_aero_f_act_conv_interstitial = unset_r8 ! prescribed lifecycle of modes
+   real :: oslo_aero_sol_factb_interstitial = unset_r8 ! below-cloud scavenging coefficient for interstitial aerosols
+   real :: oslo_aero_sol_factic_interstitial = unset_r8 ! in-cloud scavenging coefficient for interstitial aerosols
+   real :: oslo_aero_sol_f_act_conv_coarse_dust = unset_r8 
+
+   integer :: unitn, ierr
+   character(len=*), parameter :: subname='oslo_aero_depos_readnl'
+   
+   namelist /oslo_aero_depos_nl/ oslo_aero_f_act_conv_coarse_dust, oslo_aero_f_act_conv_interstitial, &
+         oslo_aero_sol_factb_interstitial, oslo_aero_sol_factic_interstitial
+   !-----------------------------------------------------------------------
+   
+   if (masterproc) then
+      open(newunit=unitn, file=trim(nlfile), status='old')
+      call find_group_name(unitn, 'oslo_aero_depos', status=ierr)
+      if (ierr==0) then
+         read(unitn, oslo_aero_depos_nl, iostat=ierr)
+         if (ierr /= 0) then
+            call endrun(subname // ': ERROR reading namelist')
+         end if
+      end if
+      close(unitn)
+   end if
+
+   call mpi_bcast(oslo_aero_f_act_conv_coarse_dust,1, mpi_real8,mstrid,mpicom, ierr)
+   if (ierr /= mpi_success) call endrun(subname // ': mpi_bcast oslo_aero_f_act_conv_coarse_dust')
+   if (oslo_aero_f_act_conv_coarse_dust == huge(1.0_r8)) call endrun(subname // ': ERROR oslo_aero_f_act_conv_coarse_dust not set in namelist')
+   f_act_conv_coarse_dust = oslo_aero_f_act_conv_coarse_dust
+   call mpi_bcast(oslo_aero_f_act_conv_interstitial,1, mpi_real8,mstrid,mpicom, ierr)
+   if (ierr /= mpi_success) call endrun(subname // ': mpi_bcast oslo_aero_f_act_conv_interstitial')
+
+   f_act_conv_interstitial= oslo_aero_f_act_conv_interstitial
+   if (f_act_conv_interstitial == huge(1.0_r8)) call endrun(subname // ': ERROR f_act_conv_interstitial not set in namelist')
+
+   call mpi_bcast(oslo_aero_sol_factb_interstitial,1, mpi_real8,mstrid,mpicom, ierr)
+   if (ierr /= mpi_success) call endrun(subname // ': mpi_bcast oslo_aero_sol_factb_interstitial')
+   if (oslo_aero_sol_factb_interstitial == huge(1.0_r8)) call endrun(subname // ': ERROR oslo_aero_sol_factb_interstitial not set in namelist')
+
+   sol_factb_interstitial = oslo_aero_sol_factb_interstitial
+   call mpi_bcast(oslo_aero_sol_factic_interstitial,1, mpi_real8,mstrid,mpicom, ierr)
+   if (ierr /= mpi_success) call endrun(subname // ': mpi_bcast oslo_aero_sol_factic_interstitial')
+   if (oslo_aero_sol_factic_interstitial == huge(1.0_r8)) call endrun(subname // ': ERROR oslo_aero_sol_factic_interstitial not set in namelist')
+   sol_factic_interstitial = oslo_aero_sol_factic_interstitial
+   if (masterproc) then
+      write(iulog,*) 'oslo_aero_depos_readnl: f_act_conv_coarse_dust = ', f_act_conv_coarse_dust
+      write(iulog,*) 'oslo_aero_depos_readnl: f_act_conv_interstitial = ', f_act_conv_interstitial
+      write(iulog,*) 'oslo_aero_depos_readnl: sol_factb_interstitial = ', sol_factb_interstitial
+      write(iulog,*) 'oslo_aero_depos_readnl: sol_factic_interstitial = ', oslo_aero_sol_factic_interstitial
+   end if
+
+  end subroutine oslo_aero_depos_readnl
 
   subroutine oslo_aero_depos_init( pbuf2d )
     use time_manager,   only: is_first_step
@@ -685,7 +745,7 @@ contains
     ! calculate the mass-weighted sol_factic for coarse mode species
     !    sol_factic_coarse(:,:) = 0.30_r8   ! tuned 1/4
     f_act_conv_coarse(:,:) = 0.60_r8   ! rce 2010/05/02
-    f_act_conv_coarse_dust = 0.40_r8   ! rce 2010/05/02
+    f_act_conv_coarse_dust = f_act_conv_coarse_dust  ! rce 2010/05/02
     f_act_conv_coarse_nacl = 0.80_r8   ! rce 2010/05/02
     f_act_conv_coarse(:,:) = 0.5_r8
 
@@ -720,15 +780,15 @@ contains
 
              scavcoefnv(:,:,1) = 0.1_r8  !Used by MAM for number concentration
 
-             sol_factb  = 0.1_r8   ! all below-cloud scav ON (0.1 "tuning factor")
+             sol_factb  = sol_factb_interstitial   ! all below-cloud scav ON (0.1 "tuning factor")
              ! sol_factb  = 0.03_r8   ! all below-cloud scav ON (0.1 "tuning factor")  ! tuned 1/6
 
              sol_facti  = 0.0_r8   ! strat  in-cloud scav totally OFF for institial
 
-             sol_factic = 0.4_r8      ! xl 2010/05/20
+             sol_factic =  sol_factic_interstitial     ! xl 2010/05/20
 
-             !fxm: simplified relative to MAM
-             f_act_conv = 0.8 !ag: Introduce tuning per component later
+
+             f_act_conv = f_act_conv_interstitial
           else   ! cloud-borne aerosol (borne by stratiform cloud drops)
              !default 100 % is scavenged by cloud -borne
              sol_facti_cloud_borne = 1.0_r8
