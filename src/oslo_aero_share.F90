@@ -12,6 +12,8 @@ module oslo_aero_share
   use cam_abortutils, only: endrun
   use physics_buffer, only: physics_buffer_desc, pbuf_get_field
   use physconst,      only: pi
+  use spmd_utils,             only: masterproc
+  use cam_logfile,            only: iulog
   !
   implicit none
   public          ! This is a public module with protected variables
@@ -39,6 +41,7 @@ module oslo_aero_share
   public :: getNumberOfAerosolTracers
   public :: fillInverseAerosolTracerList
   public :: qqcw_get_field
+  public :: oslo_aero_share_readnl
   !
   public :: calculateNumberConcentration
   public :: calculateNumberMedianRadius
@@ -116,13 +119,15 @@ module oslo_aero_share
          1.8_r8, 1.8_r8, 1.8_r8, 1.8_r8  /)           !11-14
 
   !Radius used for the modes in the lifeCycle MAY ASSUME SOME GROWTH ALREADY HAPPENED
-  real(r8), parameter :: lifeCycleNumberMedianRadius(0:nmodes) = &
+  !smb++ change to protected to be able to use namelist options 
+  real(r8), protected :: lifeCycleNumberMedianRadius(0:nmodes) = &
        1.e-6_r8*(/ 0.0626_r8, 0.025_r8, 0.025_r8 , 0.04_r8,   0.06_r8,   0.075_r8, &
                    0.22_r8,   0.63_r8,  0.0475_r8, 0.30_r8,   0.75_r8,  &    ! Salter et al. (2015)
                    0.0118_r8, 0.024_r8, 0.04_r8  , 0.04_r8    /)
 
   !Sigma based on original lifecycle code (taken from "sigmak" used previously in lifecycle code)
-  real(r8), parameter :: lifeCycleSigma(0:nmodes) =  &
+  !smb++ change to protected to be able to use namelist options
+  real(r8), protected :: lifeCycleSigma(0:nmodes) =  &
        (/1.6_r8, 1.8_r8, 1.8_r8, 1.8_r8, 1.8_r8, &   !0-4
          1.59_r8, 1.59_r8, 2.0_r8,               &   !5,6,7 (SO4+dust)
          2.1_r8, 1.72_r8, 1.6_r8,                &   !8-10  (SS)     ! Salter et al. (2015)
@@ -299,9 +304,92 @@ module oslo_aero_share
 
   integer, private :: qqcw(pcnst)=-1 ! Remaps modal_aero indices into pbuf
 
+  real(r8), parameter, private :: unset_r8 = huge(1.0_r8)
+
+  ! Namelist variables
+  real(r8),protected :: sol_facti_cloud_borne   = 1._r8
+  real(r8),protected :: sol_factb_interstitial  = 0.1_r8
+  real(r8),protected :: sol_factic_interstitial = 0.4_r8
+
 !===============================================================================
 contains
 !===============================================================================
+  subroutine oslo_aero_share_readnl
+
+    !-----------------------------------------------------------------------
+    ! Read namelist variables
+    !-----------------------------------------------------------------------
+        use namelist_utils, only: find_group_name
+    use spmd_utils,     only: mpicom, mstrid=>masterprocid, mpi_real8
+
+    character(len=*), intent(in) :: nlfile  ! filepath for file containing namelist input
+
+    ! Namelist variables
+    real(r8) :: dst_density = unset_r8
+    real(r8) :: dst_solfact = unset_r8
+    real(r8) :: oslo_aero_lifecyclenumbermedianradius(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
+    real(r8) :: oslo_aero_lifecyclesigma(0:nmodes) = unset_r8 ! prescribed lifecycle of modes
+
+    integer :: unitn, ierr,ind_mode
+    character(len=*), parameter :: subname = 'oslo_aero_share_readnl'
+
+    namelist /oslo_aero_share_nl/ dst_density, oslo_aero_lifecyclenumbermedianradius, oslo_aero_lifecyclesigma, dst_solfact, &
+    sol_facti_cloud_borne, sol_factb_interstitial, sol_factic_interstitial 
+
+    !-----------------------------------------------------------------------
+
+    if (masterproc) then
+      open(newunit=unitn, file=trim(nlfile), status='old' )
+      call find_group_name(unitn, 'oslo_aero_share_nl', status=ierr)
+      if (ierr == 0) then
+        read(unitn, oslo_aero_share_nl, iostat=ierr)
+        if (ierr /= 0) then
+          !WRITE(iulog,*) unitn,ierr ! include 'use iulog'
+          call endrun(subname // ':: ERROR reading namelist')
+        end if
+      end if
+      close(unitn)
+    end if
+    call mpi_bcast(dst_solfact,1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: dst_solfact")
+    call mpi_bcast(dst_density, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: dst_density")
+    call mpi_bcast(oslo_aero_lifecyclenumbermedianradius, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclenumbermedianradius")
+    call mpi_bcast(oslo_aero_lifecyclesigma, nmodes+1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//": FATAL: mpi_bcast: oslo_aero_lifecyclesigma")
+    call mpi_bcast(sol_facti_cloud_borne, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_facti_cloud_borne")
+    call mpi_bcast(sol_factb_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factb_interstitial")
+    call mpi_bcast(sol_factic_interstitial, 1, mpi_real8, mstrid, mpicom, ierr)
+    if (ierr /= mpi_success) call endrun(subname//" mpi_bcast: sol_factic_interstitial")
+
+
+    if (dst_density /= unset_r8) aerosol_type_density(4) = dst_density
+    if (dst_solfact /= unset_r8) aerosol_type_soluble_mass_fraction(4) = dst_solfact
+    lifeCycleNumberMedianRadius(0:nmodes) = oslo_aero_lifecyclenumbermedianradius(0:nmodes)
+    lifeCycleSigma(0:nmodes) = oslo_aero_lifecyclesigma(0:nmodes)
+
+    if (masterproc) then
+      write(iulog,*) 'dst_density = ', dst_density
+      write(iulog,*) 'dst_solfact = ', dst_solfact
+      write(iulog,*) 'sol_facti_cloud_borne = ', sol_facti_cloud_borne
+      write(iulog,*) 'sol_factb_interstitial = ', sol_factb_interstitial
+      write(iulog,*) 'sol_factic_interstitial = ', sol_factic_interstitial
+      do ind_mode=0,nmodes
+         WRITE(iulog,*) 'lifeCycleNumberMedianRadius(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+         WRITE(iulog,*) 'lifeCycleSigma(',ind_mode,') = ', lifeCycleNumberMedianRadius(ind_mode) ! add iulog
+      end do
+    end if
+    
+    do ind_mode = 0, nmodes
+      if(lifeCycleNumberMedianRadius(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleNumberMedianRadius(ind_mode) is not set")
+      if(lifeCycleSigma(ind_mode) == unset_r8) call endrun(subname//": FATAL: lifeCycleSigma(ind_mode) is not set")
+    end do
+
+
+  end subroutine oslo_aero_share_readnl
 
   function is_process_mode(l_index_in, isChemistry) result(answer)
 
