@@ -290,11 +290,16 @@ contains
 
     ! Update the mixing ratios
     do ilev = 1,pver
-       qcw(:,ilev,id_so4_1a) =  MAX( qcw(:,ilev,id_so4_1a), small_value )
-       qin(:,ilev,id_so2) =  MAX( qin(:,ilev,id_so2), small_value )
+       qcw(:,ilev,id_so4_1a) = MAX( qcw(:,ilev,id_so4_1a),   small_value )
+       qin(:,ilev,id_so2) =    MAX( qin(:,ilev,id_so2),      small_value )
+       qin(:,ilev,id_h2o2)  =     MAX( qin(:,ilev,id_h2o2),  small_value )
+       qin(:,ilev,id_h2so4) =     MAX( qin(:,ilev,id_h2so4), small_value )
+       if ( id_msa > 0 ) then
+          qin(:,ilev,id_msa) =    MAX( qin(:,ilev,id_msa),   small_value )
+       end if
        if ( id_nh3 > 0 ) then
-          qin(:,ilev,id_nh3) =  MAX( qin(:,ilev,id_nh3), small_value )
-       endif
+          qin(:,ilev,id_nh3) = MAX( qin(:,ilev,id_nh3),      small_value )
+       end if
     end do
 
     ! diagnostics

@@ -631,8 +631,8 @@ contains
     dvmrcwdt_sv1 = vmrcw
 
     ! aqueous chemistry ...
-    call setsox( state, ncol, lchnk, loffset, delt, pmid, pdel, tfld, mbar, cwat, &
-         cldfr, cldnum, airdens, invariants, vmrcw, vmr, xphlwc, &
+    call setsox( state, pbuf, ncol, lchnk, loffset, delt, pmid, pdel, tfld, mbar, &
+         cwat, cldfr, cldnum, invariants, vmrcw, vmr, xphlwc, &
          aqso4, aqh2so4, aqso4_h2o2, aqso4_o3)
 
     call outfld( 'AQSO4_H2O2', aqso4_h2o2(:ncol), ncol, lchnk)
