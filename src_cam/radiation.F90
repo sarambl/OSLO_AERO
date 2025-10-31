@@ -162,6 +162,9 @@ real(r8) :: rad_uniform_angle = -99._r8
 ! PIO descriptors (for restarts)
 type(var_desc_t) :: cospcnt_desc
 type(var_desc_t) :: nextsw_cday_desc
+
+! set by cloud_rad_props_init
+real(kind=r8) :: tiny
 !===============================================================================
 contains
 !===============================================================================
@@ -397,7 +400,8 @@ subroutine radiation_init(pbuf2d)
    call rad_data_init(pbuf2d) ! initialize output fields for offline driver
    call radsw_init()
    call radlw_init()
-   call cloud_rad_props_init()
+   ! Read ice and liquid optics files
+   call cloud_rad_props_init(tiny)
 
    cld_idx      = pbuf_get_index('CLD')
    cldfsnow_idx = pbuf_get_index('CLDFSNOW',errcode=err)
@@ -954,7 +958,8 @@ subroutine radiation_tend( &
 
    if (use_rad_uniform_angle) then
       do i = 1, ncol
-         coszrs(i) = shr_orb_cosz(calday, clat(i), clon(i), delta, dt_avg, uniform_angle=rad_uniform_angle)
+         coszrs(i) = shr_orb_cosz(calday, clat(i), clon(i), delta, dt_avg, &
+              uniform_angle=rad_uniform_angle)
       end do
    else
       do i = 1, ncol
@@ -1494,7 +1499,7 @@ subroutine radiation_tend( &
 
    ! Compute net radiative heating tendency
    call radheat_tend(state, pbuf,  ptend, qrl, qrs, fsns, &
-                     fsnt, flns, flnt, cam_in%asdir, net_flx)
+                     fsnt, flns, flnt, cam_in%asdir, coszrs, net_flx)
 
    if (write_output) then
       ! Compute heating rate for dtheta/dt
