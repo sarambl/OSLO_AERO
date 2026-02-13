@@ -1,11 +1,12 @@
 module prescribed_volcaero
 
-   use shr_kind_mod,     only : r8 => shr_kind_r8, cs => shr_kind_cs
-   use cam_abortutils,   only : endrun
-   use spmd_utils,       only : mpicom, mstrid=>masterprocid, masterproc
-   use spmd_utils,       only : mpi_logical, mpi_real8, mpi_character, mpi_integer, mpi_success
-   use tracer_data,      only : trfld, trfile
-   use cam_logfile,      only : iulog
+   use shr_kind_mod,     only: r8 => shr_kind_r8, cs => shr_kind_cs
+   use cam_abortutils,   only: endrun
+   use spmd_utils,       only: mpicom, mstrid=>masterprocid, masterproc
+   use spmd_utils,       only: mpi_logical, mpi_real8, mpi_character, mpi_integer, mpi_success
+   use tracer_data,      only: trfld, trfile
+   use cam_logfile,      only: iulog
+   use string_utils,     only: int2str
 
    implicit none
    private
@@ -142,21 +143,18 @@ contains
       ! Local variables
       integer :: idx
       integer :: band
-      character(len=3) :: c3
       !---------------------------------------------------
 
       if (has_prescribed_volcaero) then
          do band=1,solar_bands
-            write(c3,'(i3)') band
-            call pbuf_add_field('ext_sun'   //trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-            call pbuf_add_field('omega_sun' //trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-            call pbuf_add_field('g_sun'     //trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
+            call pbuf_add_field('ext_sun'  //trim(int2str(band)),'physpkg',dtype_r8,(/pcols,pver/),idx)
+            call pbuf_add_field('omega_sun'//trim(int2str(band)),'physpkg',dtype_r8,(/pcols,pver/),idx)
+            call pbuf_add_field('g_sun'    //trim(int2str(band)),'physpkg',dtype_r8,(/pcols,pver/),idx)
          enddo
          do band=1,terrestrial_bands
-            write(c3,'(i3)') band
-            call pbuf_add_field('ext_earth'   //trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-            call pbuf_add_field('omega_earth' //trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
-            call pbuf_add_field('g_earth'     //trim(adjustl(c3)),'physpkg',dtype_r8,(/pcols,pver/),idx)
+            call pbuf_add_field('ext_earth'  //trim(int2str(band)),'physpkg',dtype_r8,(/pcols,pver/),idx)
+            call pbuf_add_field('omega_earth'//trim(int2str(band)),'physpkg',dtype_r8,(/pcols,pver/),idx)
+            call pbuf_add_field('g_earth'    //trim(int2str(band)),'physpkg',dtype_r8,(/pcols,pver/),idx)
          enddo
       endif
 
@@ -170,7 +168,6 @@ contains
 
       ! Local variables
       integer           :: band
-      character(len=3)  :: c3
       character(len=32) :: specifier(3*(solar_bands+terrestrial_bands))
       !---------------------------------------------------
 
@@ -180,22 +177,23 @@ contains
          endif
 
          do band=1,solar_bands
-            write(c3,'(i3)') band
-            specifier(band*3-2) = 'ext_sun'   //trim(adjustl(c3))//':'//'ext_sun'//trim(adjustl(c3))
-            specifier(band*3-1) = 'omega_sun' //trim(adjustl(c3))//':'//'omega_sun'//trim(adjustl(c3))
-            specifier(band*3-0) = 'g_sun'     //trim(adjustl(c3))//':'//'g_sun'//trim(adjustl(c3))
-            call addfld('ext_sun'   //trim(adjustl(c3)),(/ 'lev' /), 'I', '1/km', 'Extinction coefficient of solar bands' )
-            call addfld('omega_sun' //trim(adjustl(c3)),(/ 'lev' /), 'I', '1'   , 'Single scattering albedo of solar bands' )
-            call addfld('g_sun'     //trim(adjustl(c3)),(/ 'lev' /), 'I', '1'   , 'Asymmetry factor of solar bands' )
+            specifier(band*3-2) = 'ext_sun'  //trim(int2str(band))//':'//'ext_sun'//trim(int2str(band))
+            specifier(band*3-1) = 'omega_sun'//trim(int2str(band))//':'//'omega_sun'//trim(int2str(band))
+            specifier(band*3-0) = 'g_sun'    //trim(int2str(band))//':'//'g_sun'//trim(int2str(band))
+            call addfld('ext_sun'  //trim(int2str(band)),(/ 'lev' /), 'I', '1/km', 'Extinction coefficient of solar bands' )
+            call addfld('omega_sun'//trim(int2str(band)),(/ 'lev' /), 'I', '1'   , 'Single scattering albedo of solar bands' )
+            call addfld('g_sun'    //trim(int2str(band)),(/ 'lev' /), 'I', '1'   , 'Asymmetry factor of solar bands' )
          enddo
          do band=1,terrestrial_bands
-            write(c3,'(i3)') band
-            specifier((solar_bands+band)*3-2) = 'ext_earth'   //trim(adjustl(c3))//':'//'ext_earth'//trim(adjustl(c3))
-            specifier((solar_bands+band)*3-1) = 'omega_earth' //trim(adjustl(c3))//':'//'omega_earth'//trim(adjustl(c3))
-            specifier((solar_bands+band)*3-0) = 'g_earth'     //trim(adjustl(c3))//':'//'g_earth'//trim(adjustl(c3))
-            call addfld('ext_earth'   //trim(adjustl(c3)),(/ 'lev' /), 'I', '1/km', 'Extinction coefficient of terrestrial bands' )
-            call addfld('omega_earth' //trim(adjustl(c3)),(/ 'lev' /), 'I', '1'   , 'Single scattering albedo of terrestrial bands' )
-            call addfld('g_earth'     //trim(adjustl(c3)),(/ 'lev' /), 'I', '1'   , 'Asymmetry factor of terrestrial bands' )
+            specifier((solar_bands+band)*3-2) = 'ext_earth'  //trim(int2str(band))//':'//'ext_earth'//trim(int2str(band))
+            specifier((solar_bands+band)*3-1) = 'omega_earth'//trim(int2str(band))//':'//'omega_earth'//trim(int2str(band))
+            specifier((solar_bands+band)*3-0) = 'g_earth'    //trim(int2str(band))//':'//'g_earth'//trim(int2str(band))
+            call addfld('ext_earth'  //trim(int2str(band)),(/ 'lev' /), 'I', '1/km', &
+                 'Extinction coefficient of terrestrial bands')
+            call addfld('omega_earth'//trim(int2str(band)),(/ 'lev' /), 'I', '1'   , &
+                 'Single scattering albedo of terrestrial bands')
+            call addfld('g_earth'    //trim(int2str(band)),(/ 'lev' /), 'I', '1'   , &
+                 'Asymmetry factor of terrestrial bands')
          enddo
 
          allocate(file%in_pbuf(size(specifier)))
@@ -224,7 +222,6 @@ contains
       integer           :: c,ncol,i,k
       integer           :: band
       real(r8), pointer :: data(:,:)
-      character(len=3)  :: c3
       integer           :: tropLev(pcols)
       type(physics_buffer_desc), pointer :: pbuf_chnk(:)
       !---------------------------------------------------
@@ -240,52 +237,50 @@ contains
             call tropopause_find_cam(pstate=state(c), tropLev=tropLev)
             ncol = state(c)%ncol
             do band=1,solar_bands
-               write(c3,'(i3)') band
                call pbuf_get_field(pbuf_chnk, fields(band*3-2)%pbuf_ndx, data)
                do i = 1,ncol
                   do k = 1,pver
                      if ( k >= tropLev(i) ) data(i,k) = 0._r8
                   enddo
                enddo
-               call outfld('ext_sun'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
+               call outfld('ext_sun'//trim(int2str(band)),data(:,:), pcols, state(c)%lchnk)
                call pbuf_get_field(pbuf_chnk, fields(band*3-1)%pbuf_ndx, data)
                do i = 1,ncol
                   do k = 1,pver
                      if ( k >= tropLev(i) ) data(i,k) = 0.999_r8
                   enddo
                enddo
-               call outfld('omega_sun'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
+               call outfld('omega_sun'//trim(int2str(band)),data(:,:), pcols, state(c)%lchnk)
                call pbuf_get_field(pbuf_chnk, fields(band*3-0)%pbuf_ndx, data)
                do i = 1,ncol
                   do k = 1,pver
                      if ( k >= tropLev(i) ) data(i,k) = 0.5_r8
                   enddo
                enddo
-               call outfld('g_sun'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
+               call outfld('g_sun'//trim(int2str(band)),data(:,:), pcols, state(c)%lchnk)
             enddo
             do band=1,terrestrial_bands
-               write(c3,'(i3)') band
                call pbuf_get_field(pbuf_chnk, fields((solar_bands+band)*3-2)%pbuf_ndx, data)
                do i = 1,ncol
                   do k = 1,pver
                      if ( k >= tropLev(i) ) data(i,k) = 0._r8
                   enddo
                enddo
-               call outfld('ext_earth'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
+               call outfld('ext_earth'//trim(int2str(band)),data(:,:), pcols, state(c)%lchnk)
                call pbuf_get_field(pbuf_chnk, fields((solar_bands+band)*3-1)%pbuf_ndx, data)
                do i = 1,ncol
                   do k = 1,pver
                      if ( k >= tropLev(i) ) data(i,k) = 0.999_r8
                   enddo
                enddo
-               call outfld('omega_earth'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
+               call outfld('omega_earth'//trim(int2str(band)),data(:,:), pcols, state(c)%lchnk)
                call pbuf_get_field(pbuf_chnk, fields((solar_bands+band)*3-0)%pbuf_ndx, data)
                do i = 1,ncol
                   do k = 1,pver
                      if ( k >= tropLev(i) ) data(i,k) = 0.5_r8
                   enddo
                enddo
-               call outfld('g_earth'//trim(adjustl(c3)),data(:,:), pcols, state(c)%lchnk)
+               call outfld('g_earth'//trim(int2str(band)),data(:,:), pcols, state(c)%lchnk)
             enddo
          enddo
       endif
