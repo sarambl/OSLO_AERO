@@ -265,6 +265,7 @@ contains
        end do
     enddo
     call outfld('ASYMMDRY',asydry_aer,pcols,lchnk)
+    call outfld('DELTAH',deltah_km,pcols,lchnk)
 
   end subroutine aerocom1
 
