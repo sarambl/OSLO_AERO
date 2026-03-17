@@ -42,8 +42,9 @@ use cam_abortutils,      only: endrun
 use error_messages,      only: handle_err
 use perf_mod,            only: t_startf, t_stopf
 use cam_logfile,         only: iulog
+use string_utils,        only: int2str
 ! OSLO_AERO begin
-use prescribed_volcaero,      only: has_prescribed_volcaero
+use prescribed_volcaero,      only: has_prescribed_volcaero, solar_bands, terrestrial_bands
 use oslo_aero_optical_params, only: oslo_aero_optical_params_calc
 use oslo_aero_share,          only: nmodes_oslo=>nmodes
 use oslo_aero_control,        only: use_aerocom
@@ -52,7 +53,6 @@ use oslo_aero_aerocom,        only: dod440, dod550, dod870, abs550, abs550alt
 
 implicit none
 private
-save
 
 public :: &
    radiation_readnl,         &! read namelist variables
@@ -782,6 +782,7 @@ subroutine radiation_tend( &
    ! OSLO_AERO begin
    integer                  :: band
    logical                  :: idrf
+   integer                  :: volc_idx
    ! OSLO_AERO end
    type(rad_out_t), pointer :: rd  ! allow rd_out to be optional by allocating a local object
                                    ! if the argument is not present
@@ -816,6 +817,9 @@ subroutine radiation_tend( &
    real(r8), pointer :: fsnt(:)  ! Net column abs solar flux at model top
    real(r8), pointer :: flns(:)  ! Srf longwave cooling (up-down) flux
    real(r8), pointer :: flnt(:)  ! Net outgoing lw flux at model top
+   ! OSLO_AERO begin
+   real(r8), pointer :: volcopt(:,:)  ! Read in stratospheric volcano SW optical parameter
+   ! OSLO_AERO end
 
    real(r8), pointer, dimension(:,:,:) :: su => NULL()  ! shortwave spectral flux up
    real(r8), pointer, dimension(:,:,:) :: sd => NULL()  ! shortwave spectral flux down
@@ -1247,23 +1251,48 @@ subroutine radiation_tend( &
       call t_stopf('cldoptics')
 
       ! Solar radiation computation
-
       if (dosw) then
 
          ! OSLO_AERO begin
          qdirind(:ncol,:,:) = state%q(:ncol,:,:)
 
          ! Volcanic optics for solar (SW) bands
-         do band=1,nswbands
-            volc_ext_sun(1:ncol,1:pver,band)=0.0_r8
-            volc_omega_sun(1:ncol,1:pver,band)=0.999_r8
-            volc_g_sun(1:ncol,1:pver,band)=0.5_r8
-         enddo
+         do band = 1, nswbands
+            volc_ext_sun(:ncol, :pver, band) = 0.0_r8
+            volc_omega_sun(:ncol, :pver, band) = 0.999_r8
+            volc_g_sun(:ncol, :pver, band) = 0.5_r8
+         end do
+         if (has_prescribed_volcaero) then
+            do band = 1, solar_bands
+               volc_idx = pbuf_get_index('ext_sun'//int2str(band))
+               call pbuf_get_field(pbuf, volc_idx, volcopt, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+               volc_ext_sun(:ncol, :pver, band) = volcopt(:ncol, :pver)
+               volc_idx = pbuf_get_index('omega_sun'//int2str(band))
+               call pbuf_get_field(pbuf, volc_idx, volcopt, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+               volc_omega_sun(:ncol, :pver, band) = volcopt(:ncol, :pver)
+               volc_idx = pbuf_get_index('g_sun'//int2str(band))
+               call pbuf_get_field(pbuf, volc_idx, volcopt, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+               volc_g_sun(:ncol, :pver, band) = volcopt(:ncol, :pver)
+            end do
+         end if
+
          !  Volcanic optics for terrestrial (LW) bands
-         do band=1,nlwbands
-            volc_ext_earth(1:ncol,1:pver,band) = 0.0_r8
-            volc_omega_earth(1:ncol,1:pver,band) = 0.999_r8
-         enddo
+         do band = 1, nlwbands
+            volc_ext_earth(:ncol, :pver, band) = 0.0_r8
+            volc_omega_earth(:ncol, :pver, band) = 0.999_r8
+         end do
+         !  Volcanic optics for terrestrial (LW) bands (g is not used here)
+         if (has_prescribed_volcaero) then
+            do band = 1, terrestrial_bands
+               volc_idx = pbuf_get_index('ext_earth'//int2str(band))
+               call pbuf_get_field(pbuf, volc_idx, volcopt, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+               volc_ext_earth(:ncol, :pver, band) = volcopt(:ncol, :pver)
+
+               volc_idx = pbuf_get_index('omega_earth'//int2str(band))
+               call pbuf_get_field(pbuf, volc_idx, volcopt, start=(/1,1,itim_old/), kount=(/pcols,pver,1/))
+               volc_omega_earth(:ncol, :pver, band) = volcopt(:ncol, :pver)
+            end do
+         end if
 
          ! No aerocom variables passed for now
          ! dod440, dod550, dod870, abs550, abs550alt
