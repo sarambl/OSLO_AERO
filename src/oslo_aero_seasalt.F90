@@ -22,6 +22,8 @@ module oslo_aero_seasalt
   integer, parameter, public :: seasalt_nbin = numberOfSaltModes  ! needed by mo_photo.F90
   logical, parameter, public :: seasalt_active = .true.
 
+  real(r8):: emis_scale
+
   integer :: modeMap(numberOfSaltModes)    ! [idx] which modes are we modifying
   integer :: tracerMap(numberOfSaltModes)  ! [idx] which tracers are we modifying
 
@@ -32,8 +34,8 @@ module oslo_aero_seasalt
 contains
 !===============================================================================
 
-  subroutine oslo_aero_seasalt_init()
-
+  subroutine oslo_aero_seasalt_init(seasalt_emis_scale)
+    real(r8), intent(in) :: seasalt_emis_scale
     integer :: imode
 
     modeMap(1) = MODE_IDX_SS_A1
@@ -48,6 +50,8 @@ contains
     do imode = 1,numberOfSaltModes
        seasalt_names(imode) = cnst_name(tracerMap(imode))
     end do
+
+    emis_scale = seasalt_emis_scale
 
   end subroutine oslo_aero_seasalt_init
 
@@ -120,6 +124,7 @@ contains
        cflx(:ncol, tracerMap(imode)) = numberFlux(:ncol,imode)    & !#/m2/sec
                                  / volumeToNumber(modeMap(imode)) & !==> m3/m2/sec
                                  * rhopart(tracerMap(imode))        !==> kg/m2/sec
+       cflx(:ncol, tracerMap(imode)) = cflx(:ncol, tracerMap(imode)) * emis_scale ! scale seaalt 
     end do
     spracklenOMOceanSource(:ncol) = cflx(:ncol, tracerMap(1))*seasaltToSpracklenOM2
 
