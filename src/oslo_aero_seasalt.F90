@@ -22,7 +22,7 @@ module oslo_aero_seasalt
   integer, parameter, public :: seasalt_nbin = numberOfSaltModes  ! needed by mo_photo.F90
   logical, parameter, public :: seasalt_active = .true.
 
-  real(r8):: emis_scale
+  real(r8):: emis_scale = huge(1.0_r8)
 
   integer :: modeMap(numberOfSaltModes)    ! [idx] which modes are we modifying
   integer :: tracerMap(numberOfSaltModes)  ! [idx] which tracers are we modifying

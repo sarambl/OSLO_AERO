@@ -42,14 +42,14 @@ module oslo_aero_dust
    integer , parameter, public :: dust_nbin = numberOfDustModes
    real(r8), parameter :: unset_r8 = huge(1.0_r8)
    !Related to soil erodibility
-   real(r8),protected  :: dust_emis_fact = unset_r8        ! tuning parameter for dust emissions
+   real(r8)  :: dust_emis_fact = unset_r8        ! tuning parameter for dust emissions
    character(len=cl)   :: soil_erod_file = 'none' ! full pathname for soil erodibility dataset
 
    real(r8), allocatable ::  soil_erodibility(:,:) ! soil erodibility factor
 
-   real(r8), parameter ::  d2r  = pi/180._r8                 ! radians to degrees
+   real(r8), parameter, public ::  d2r  = pi/180._r8                 ! radians to degrees
 
-   real(r8), protected  :: emis_fact_in_coarse_mode = unset_r8  ! tuning parameter for distribution of dust emissions between modes
+   real(r8) :: emis_fact_in_coarse_mode = unset_r8  ! tuning parameter for distribution of dust emissions between modes
    real(r8), public    :: emis_fraction_in_mode(numberOfDustModes) 
 
 !=============================================================================
