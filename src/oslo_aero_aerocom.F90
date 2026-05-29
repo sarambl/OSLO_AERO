@@ -1723,7 +1723,7 @@ contains
     real(r8), intent(out) :: backsc550n(pcols,pver,0:nbmodes)
 
     ! Local variables
-    integer  :: imode, ilev, icol, kcomp, irh
+    integer  :: imode, ilev, icol, kcomp, irh, irelh
     integer  :: iloop
     real(r8) :: deltah
     real(r8) :: dod550rh(pcols), abs550rh(pcols)
@@ -1787,9 +1787,29 @@ contains
     real(r8) :: besslt1(pcols,pver), bessgt1(pcols,pver)
     real(r8) :: bbclt1xt(pcols,pver)
     real(r8) :: boclt1xt(pcols,pver)
+    real(r8) :: xrh_sc(pcols,pver)
+    integer  :: irh1_sc(pcols,pver)
     !-------------------------------------------------------------------------
 
     belt1x(:,:,:) = 0._r8
+
+    ! scale RH by rh_fine_aer_scale_fact_optics for all modes except dust (6-7) and seasalt (8-10).
+    do ilev=1,pver
+       do icol=1,ncol
+          xrh_sc(icol,ilev) = min(max(xrh(icol,ilev)*rh_fine_aer_scale_fact_optics, rh(1)), rh(10))
+       end do
+    end do
+
+    irh1_sc(:,:) = 1
+    do irelh=1,9
+       do ilev=1,pver
+          do icol=1,ncol
+             if (xrh_sc(icol,ilev) >= rh(irelh) .and. xrh_sc(icol,ilev) <= rh(irelh+1)) then
+                irh1_sc(icol,ilev) = irelh
+             end if
+          end do
+       end do
+    end do
 
     ! BC(ax) mode (hydrophobic, so no rhum needed here):
     call intaeropt0(lchnk, ncol, Nnatk,               &
@@ -1804,7 +1824,7 @@ contains
          backsc550, babg550, babc550, baoc550, basu550)
 
     ! SO4(Ait), BC(Ait) and OC(Ait) modes:
-    call intaeropt1(lchnk, ncol, xrh, irh1,  &
+    call intaeropt1(lchnk, ncol, xrh_sc, irh1_sc,  &
          Nnatk, xfombg, ifombg1, xct, ict1, xfac, ifac1,&
          bext440, bext500, bext550, bext670, bext870,   &
          bebg440, bebg500, bebg550, bebg670, bebg870,   &
@@ -1816,7 +1836,7 @@ contains
          beoclt1, beocgt1, bes4lt1, bes4gt1,            &
          backsc550, babg550, babc550, baoc550, basu550)
 
-    call intaeropt2to3(lchnk, ncol, xrh, irh1, 2, &
+    call intaeropt2to3(lchnk, ncol, xrh_sc, irh1_sc, 2, &
          Nnatk, xct, ict1, xfac, ifac1,           &
          bext440, bext500, bext550, bext670, bext870,     &
          bebg440, bebg500, bebg550, bebg670, bebg870,     &
@@ -1829,7 +1849,7 @@ contains
          backsc550, babg550, babc550, baoc550, basu550)
 
     ! BC&OC(Ait) (4), OC&BC(Ait) mode
-    call intaeropt4(lchnk, ncol, xrh, irh1, 4, Nnatk,  &
+    call intaeropt4(lchnk, ncol, xrh_sc, irh1_sc, 4, Nnatk,  &
          xfbcbg, ifbcbg1, xct, ict1, xfac, ifac1, xfaq, ifaq1, &
          bext440, bext500, bext550, bext670, bext870,          &
          bebg440, bebg500, bebg550, bebg670, bebg870,          &
@@ -1841,9 +1861,8 @@ contains
          beoclt1, beocgt1, bes4lt1, bes4gt1,                   &
          backsc550, babg550, babc550, baoc550, basu550)
 
-    ! SO4(Ait75) (5), Mineral (6-7) and Sea-salt (8-10) modes:
-    do kcomp=5,10
-    call intaeropt5to10(lchnk, ncol, xrh, irh1, kcomp, Nnatk,   &
+    ! SO4(Ait75) (5) — scaled RH, matching interpol5to10 in oslo_aero_optical_params.F90:
+    call intaeropt5to10(lchnk, ncol, xrh_sc, irh1_sc, 5, Nnatk,   &
          xct, ict1, xfac, ifac1, xfbc, ifbc1, xfaq, ifaq1, &
          bext440, bext500, bext550, bext670, bext870,      &
          bebg440, bebg500, bebg550, bebg670, bebg870,      &
@@ -1854,10 +1873,23 @@ contains
          bebglt1, bebggt1, bebclt1, bebcgt1,               &
          beoclt1, beocgt1, bes4lt1, bes4gt1,               &
          backsc550, babg550, babc550, baoc550, basu550)
+    ! Mineral (6-7) and Sea-salt (8-10) modes — unscaled RH:
+    do kcomp=6,10
+       call intaeropt5to10(lchnk, ncol, xrh, irh1, kcomp, Nnatk,   &
+            xct, ict1, xfac, ifac1, xfbc, ifbc1, xfaq, ifaq1, &
+            bext440, bext500, bext550, bext670, bext870,      &
+            bebg440, bebg500, bebg550, bebg670, bebg870,      &
+            bebc440, bebc500, bebc550, bebc670, bebc870,      &
+            beoc440, beoc500, beoc550, beoc670, beoc870,      &
+            besu440, besu500, besu550, besu670, besu870,      &
+            babs440, babs500, babs550, babs670, babs870,      &
+            bebglt1, bebggt1, bebclt1, bebcgt1,               &
+            beoclt1, beocgt1, bes4lt1, bes4gt1,               &
+            backsc550, babg550, babc550, baoc550, basu550)
     end do
 
     ! then to the externally mixed SO4(n), BC(n) and OC(n) modes:
-    call intaeropt2to3(lchnk, ncol, xrh, irh1, 12,  &
+    call intaeropt2to3(lchnk, ncol, xrh_sc, irh1_sc, 12,  &
          Nnatk, xct, ict1, xfac, ifac1,                    &
          bext440n, bext500n, bext550n, bext670n, bext870n, &
          bebg440n, bebg500n, bebg550n, bebg670n, bebg870n, &
@@ -1870,7 +1902,7 @@ contains
          backsc550n, babg550n, babc550n, baoc550n, basu550n)
 
     ! finally the BC&OC(n) mode:
-    call intaeropt4(lchnk, ncol, xrh, irh1, 14, Nnatk,    &
+    call intaeropt4(lchnk, ncol, xrh_sc, irh1_sc, 14, Nnatk,    &
          xfbcbgn, ifbcbgn1, xct, ict1, xfac, ifac1, xfaq, ifaq1, &
          bext440n, bext500n, bext550n, bext670n, bext870n,       &
          bebg440n, bebg500n, bebg550n, bebg670n, bebg870n,       &

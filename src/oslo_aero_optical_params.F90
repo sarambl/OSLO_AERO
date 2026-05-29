@@ -103,7 +103,7 @@ contains
     real(r8) :: rh_temp(pcols,pver) ! relative humidity (fraction) for input to LUT
     real(r8) :: xrh(pcols,pver)
     integer  :: irh1(pcols,pver)
-    real(r8) :: xrh_sc(pcols,pver)   ! RH scaled by 1.1 for all modes except dust (6-7) and seasalt (8-10)
+    real(r8) :: xrh_sc(pcols,pver)   ! RH scaled by rh_fine_aer_scale_fact_optics for all modes except dust (6-7) and seasalt (8-10)
     integer  :: irh1_sc(pcols,pver)
     real(r8) :: xfombg(pcols,pver)
     integer  :: ifombg1(pcols,pver), ifombg2(pcols,pver)
@@ -254,7 +254,7 @@ contains
     ! scale RH by rh_fine_aer_scale_fact_optics for all modes except dust (6-7) and seasalt (8-10).
     do ilev=1,pver
        do icol=1,ncol
-          xrh_sc(icol,ilev) = min(max(rhum(icol,ilev)*rh_fine_aer_scale_fact_optics, rh(1)), rh(10))
+          xrh_sc(icol,ilev) = min(max(xrh(icol,ilev)*rh_fine_aer_scale_fact_optics, rh(1)), rh(10))
        end do
     end do
     irh1_sc(:,:) = 1
