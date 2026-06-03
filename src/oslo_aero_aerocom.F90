@@ -1824,7 +1824,7 @@ contains
          backsc550, babg550, babc550, baoc550, basu550)
 
     ! SO4(Ait), BC(Ait) and OC(Ait) modes:
-    call intaeropt1(lchnk, ncol, xrh_sc, irh1_sc,  &
+    call intaeropt1(lchnk, ncol, xrh_sc, irh1_sc, 1,  &
          Nnatk, xfombg, ifombg1, xct, ict1, xfac, ifac1,&
          bext440, bext500, bext550, bext670, bext870,   &
          bebg440, bebg500, bebg550, bebg670, bebg870,   &

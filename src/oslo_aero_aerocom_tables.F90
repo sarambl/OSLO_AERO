@@ -706,7 +706,7 @@ contains
   end subroutine intaeropt0
 
   !===============================================================================
-  subroutine intaeropt1 (lchnk, ncol, xrh, irh1,    &
+  subroutine intaeropt1 (lchnk, ncol, xrh, irh1, kout, &
        Nnatk, xfombg, ifombg1, xct, ict1, xfac, ifac1, &
        bext440, bext500, bext550, bext670, bext870,    &
        bebg440, bebg500, bebg550, bebg670, bebg870,    &
@@ -724,6 +724,7 @@ contains
     ! Arguments
     integer  , intent(in)  :: lchnk                       ! chunk identifier
     integer  , intent(in)  :: ncol                        ! number of atmospheric columns
+    integer  , intent(in)  :: kout                        ! source mode index (1 or 11)
     real(r8) , intent(in)  :: xrh(pcols,pver)            ! level relative humidity (fraction)
     integer  , intent(in)  :: irh1(pcols,pver)
     real(r8) , intent(in)  :: Nnatk(pcols,pver,0:nmodes) ! modal aerosol number concentration
@@ -830,7 +831,7 @@ contains
 
     do ilev=1,pver
        do icol=1,ncol
-          if(Nnatk(icol,ilev,kcomp)>0) then
+          if(Nnatk(icol,ilev,kout)>0) then
 
              ! Collect all the vector elements into temporary storage
              ! to avoid cache conflicts and excessive cross-referencing
@@ -838,9 +839,9 @@ contains
              t_irh2 = t_irh1+1
              t_ifo1 = ifombg1(icol,ilev)
              t_ifo2 = t_ifo1+1
-             t_ict1 = ict1(icol,ilev,kcomp)
+             t_ict1 = ict1(icol,ilev,kout)
              t_ict2 = t_ict1+1
-             t_ifc1 = ifac1(icol,ilev,kcomp)
+             t_ifc1 = ifac1(icol,ilev,kout)
              t_ifc2 = t_ifc1+1
 
              t_rh1  = rh(t_irh1)
@@ -853,8 +854,8 @@ contains
              t_fac2 = fac(t_ifc2)
 
              t_xrh  = xrh(icol,ilev)
-             t_xct  = xct(icol,ilev,kcomp)
-             t_xfac = xfac(icol,ilev,kcomp)
+             t_xct  = xct(icol,ilev,kout)
+             t_xfac = xfac(icol,ilev,kout)
              t_xfombg = xfombg(icol,ilev)
 
              ! partial lengths along each dimension (1-4) for interpolation
