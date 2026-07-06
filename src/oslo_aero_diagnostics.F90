@@ -107,6 +107,8 @@ contains
          call addfld ('PMTOT   ',horiz_only, 'A','ug/m3   ','Aerosol PM, all sizes')
          call addfld ('PM25    ',horiz_only, 'A','ug/m3   ','Aerosol PM2.5')
 
+         call addfld ('DELTAH  ',(/'lev'/), 'A', 'km      ','Layer thickness in km')
+
          call addfld ('PM2P5   ',(/'lev'/), 'A','ug/m3   ','3D aerosol PM2.5')
          call addfld ('MMRPM2P5',(/'lev'/), 'A','kg/kg   ','3D aerosol PM2.5 mass mixing ratio')
          call addfld ('MMRPM1  ',(/'lev'/), 'A','kg/kg   ','3D aerosol PM1.0 mass mixing ratio')
@@ -248,7 +250,6 @@ contains
                call addfld(varName, horiz_only, 'A', 'unitless', 'relative exessive added mass column for mode'//trim(varname))
             end if
          enddo
-
          call add_default ('AKCXS   ', 1, ' ')
          call add_default ('PMTOT   ', 1, ' ')
          call add_default ('PM25    ', 1, ' ')
@@ -256,6 +257,7 @@ contains
          call add_default ('MMRPM2P5', 1, ' ')
          call add_default ('MMRPM1  ', 1, ' ')
          call add_default ('GRIDAREA', 1, ' ')
+         call add_default ('DELTAH  ', 1, ' ')
          call add_default ('DAERH2O ', 1, ' ')
          call add_default ('MMR_AH2O', 1, ' ')
          call add_default ('ECDRYAER', 1, ' ')
