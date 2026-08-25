@@ -172,10 +172,10 @@ contains
        aqso4,  &
        aqh2so4,&
        aqso4_h2o2, &
-       aqso4_o3,   &
-       yph_in,  &
+       aqso4_o3,   &       
        aqso4_h2o2_3d, &
-       aqso4_o3_3d &
+       aqso4_o3_3d, &
+       yph_in  &
        )
 
     !-----------------------------------------------------------------------
@@ -240,9 +240,9 @@ contains
     real(r8),         intent(out)   :: aqh2so4(:,:)                 ! aqueous phase chemistry
     real(r8),         intent(out)   :: aqso4_h2o2(:)                ! SO4 aqueous phase chemistry due to H2O2 (kg/m2)
     real(r8),         intent(out)   :: aqso4_o3(:)                  ! SO4 aqueous phase chemistry due to O3 (kg/m2)
-    real(r8),         intent(in), optional :: yph_in                ! ph value
     real(r8),         intent(out), optional :: aqso4_h2o2_3d(:, :)  ! 3D SO4 aqueous phase chemistry due to H2O2 (kg/m2)
     real(r8),         intent(out), optional :: aqso4_o3_3d(:, :)    ! 3D SO4 aqueous phase chemistry due to O3 (kg/m2)
+    real(r8),         intent(in), optional :: yph_in                ! ph value    
 
     !-----------------------------------------------------------------------
     !      ... Local variables
