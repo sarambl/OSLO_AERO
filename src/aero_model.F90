@@ -343,11 +343,17 @@ contains
     call addfld( 'XPH_LWC',    (/ 'lev' /), 'A','kg/kg',   'pH value multiplied by lwc')
     call addfld ('AQSO4_H2O2', horiz_only,  'A','kg/m2/s', 'SO4 aqueous phase chemistry due to H2O2')
     call addfld ('AQSO4_O3',   horiz_only,  'A','kg/m2/s', 'SO4 aqueous phase chemistry due to O3')
+    call addfld( 'AQSO4_H2O2_3D',    (/ 'lev' /), 'A','kg/m2/s',  'SO4 aqueous phase chemistry due to H2O2')
+    call addfld( 'AQSO4_O3_3D',    (/ 'lev' /), 'A','kg/m2/s',  'SO4 aqueous phase chemistry due to O3')
+    call addfld( 'GSSO4_3D',    (/ 'lev' /), 'A','kg/m2/s',  'SO4 gas phase production')    
 
     if ( history_aerosol ) then
        call add_default ('XPH_LWC', 1, ' ')
        call add_default ('AQSO4_H2O2', 1, ' ')
+       call add_default ('AQSO4_H2O2_3D', 1, ' ')       
        call add_default ('AQSO4_O3', 1, ' ')
+       call add_default ('AQSO4_O3_3D', 1, ' ')
+       call add_default ('GSSO4_3D', 1, ' ')              
     endif
 
   end subroutine aero_model_init
@@ -534,6 +540,7 @@ contains
     integer  :: imode,icnst,itrac
     integer  :: nstep
     real(r8) :: wrk(ncol)
+    real(r8) :: wrk3d(ncol,pver)    
     real(r8) :: dvmrcwdt(ncol,pver,gas_pcnst)
     real(r8) :: dvmrdt(ncol,pver,gas_pcnst)
     real(r8) :: vmrcw(ncol,pver,gas_pcnst)   ! cloud-borne aerosol (vmr)
@@ -552,6 +559,9 @@ contains
     real(r8) :: aqh2so4(ncol,nmodes_aq_chem) ! aqueous phase chemistry
     real(r8) :: aqso4_h2o2(ncol)             ! SO4 aqueous phase chemistry due to H2O2
     real(r8) :: aqso4_o3(ncol)               ! SO4 aqueous phase chemistry due to O3
+    real(r8) :: aqso4_h2o2_3d(ncol,pver)     ! SO4 aqueous phase chemistry due to H2O2 in each layer
+    real(r8) :: aqso4_o3_3d(ncol,pver)       ! SO4 aqueous phase chemistry due to O3 in each layer
+    real(r8) :: gsso4_3d(ncol,pver)       ! SO4 gas phase production due in each layer      
     real(r8) :: xphlwc(ncol,pver)            ! pH value multiplied by lwc
     real(r8) :: delt_inverse                 ! 1 / timestep
     real(r8), pointer :: pblh(:)
@@ -569,7 +579,7 @@ contains
     AQ_H2SO4(:ncol,lchnk) = 0._r8
     AQ_SO4_A2_OCW(:ncol,lchnk) = 0._r8
     AQ_SO2(:ncol,lchnk) = 0._r8
-
+    gsso4_3d(:ncol,:)=0._r8
     ! Get height of boundary layer (needed for boundary layer nucleation)
     call pbuf_get_field(pbuf, pblh_idx, pblh)
 
@@ -577,8 +587,10 @@ contains
     dvmrdt(:ncol,:,:) = (vmr(:ncol,:,:) - vmr0(:ncol,:,:)) / delt
     do icnst = 1, gas_pcnst
        wrk(:) = 0._r8
+       wrk3d(:ncol,:) = 0._r8       
        do ilev = 1,pver
           wrk(:ncol) = wrk(:ncol) + dvmrdt(:ncol,ilev,icnst)*adv_mass(icnst)/mbar(:ncol,ilev)*pdel(:ncol,ilev)/gravit
+          wrk3d(:ncol,ilev) = dvmrdt(:ncol,ilev,icnst)*adv_mass(icnst)/mbar(:ncol,ilev)*pdel(:ncol,ilev)/gravit          
        end do
 
        call cnst_get_ind(trim(solsym(icnst)), l_aero, abort=.false.)
@@ -586,6 +598,9 @@ contains
           GS_SOA(:ncol,lchnk) = GS_SOA(:ncol,lchnk) + wrk(:ncol)
        else if ( l_aero == l_h2so4 ) then
           GS_H2SO4(:ncol,lchnk) = GS_H2SO4(:ncol,lchnk) + wrk(:ncol)
+          do ilev=1,pver
+             gsso4_3d(:ncol,ilev) = gsso4_3d(:ncol,ilev) + wrk3d(:ncol,ilev)
+          end do
        else if ( l_aero == l_dms ) then
           GS_DMS(:ncol, lchnk) = GS_DMS(:ncol,lchnk) + wrk(:ncol)
        else if ( l_aero == l_so2) then
@@ -634,12 +649,14 @@ contains
     ! aqueous chemistry ...
     call setsox( state, pbuf, ncol, lchnk, loffset, delt, pmid, pdel, tfld, mbar, &
          cwat, cldfr, cldnum, invariants, vmrcw, vmr, xphlwc, &
-         aqso4, aqh2so4, aqso4_h2o2, aqso4_o3)
+         aqso4, aqh2so4, aqso4_h2o2, aqso4_o3, aqso4_h2o2_3d, aqso4_o3_3d)
 
     call outfld( 'AQSO4_H2O2', aqso4_h2o2(:ncol), ncol, lchnk)
     call outfld( 'AQSO4_O3',   aqso4_o3(:ncol),   ncol, lchnk)
+    call outfld( 'AQSO4_H2O2_3D', aqso4_h2o2_3d(:ncol,:), ncol, lchnk)
+    call outfld( 'AQSO4_O3_3D', aqso4_o3_3d(:ncol,:), ncol, lchnk)        
     call outfld( 'XPH_LWC',    xphlwc(:ncol,:),   ncol, lchnk )
-
+    call outfld( 'GSSO4_3D', gsso4_3d(:ncol,:), ncol, lchnk)        
     ! vmr tendency from aqchem and soa routines
     dvmrdt_sv1 = (vmr - dvmrdt_sv1)/delt
     dvmrcwdt_sv1 = (vmrcw - dvmrcwdt_sv1)/delt
