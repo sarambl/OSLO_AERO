@@ -317,6 +317,17 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
 
    ! If night everywhere, return:
    if ( Nday == 0 ) then
+      ! Call outfld before returning to include zero values in average values
+      call outfld('FUS     ', fus(:ncol,:),  ncol, lchnk)
+      call outfld('FDS     ', fds(:ncol,:),  ncol, lchnk)
+      call outfld('FUSC    ', fusc(:ncol,:), ncol, lchnk)
+      call outfld('FDSC    ', fdsc(:ncol,:), ncol, lchnk)
+      if (present(idrf)) then
+         if (idrf) then
+            call outfld('FUSCAF', fusc(:ncol,:), ncol, lchnk)
+            call outfld('FDSCAF', fdsc(:ncol,:), ncol, lchnk)
+         end if
+      end if
      return
    endif
 
@@ -636,8 +647,8 @@ subroutine rad_rrtmg_sw(lchnk,ncol       ,rrtmg_levs   ,r_state      , &
    ! OSLO_AERO end
    if (present(idrf)) then
       if (idrf) then
-         call outfld('FUSCDRF ', fusc(:ncol,:), ncol, lchnk)
-         call outfld('FDSCDRF ', fdsc(:ncol,:), ncol, lchnk)
+         call outfld('FUSCAF', fusc(:ncol,:), ncol, lchnk)
+         call outfld('FDSCAF', fdsc(:ncol,:), ncol, lchnk)
       endif
    end if
 

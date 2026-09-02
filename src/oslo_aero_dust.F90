@@ -40,18 +40,17 @@ module oslo_aero_dust
    integer             :: tracerMap(numberOfDustModes) = (/-99, -99/) !index of dust tracers in the modes
 
    integer , parameter, public :: dust_nbin = numberOfDustModes
-
+   real(r8), parameter :: unset_r8 = huge(1.0_r8)
    !Related to soil erodibility
-   real(r8)          :: dust_emis_fact = -1.e36_r8        ! tuning parameter for dust emissions
-   character(len=cl) :: soil_erod_file = 'none' ! full pathname for soil erodibility dataset
+   real(r8)  :: dust_emis_fact = unset_r8        ! tuning parameter for dust emissions
+   character(len=cl)   :: soil_erod_file = 'none' ! full pathname for soil erodibility dataset
 
    real(r8), allocatable ::  soil_erodibility(:,:) ! soil erodibility factor
-   real(r8)              :: soil_erod_fact         ! tuning parameter for dust emissions
 
-   real(r8), parameter ::  d2r  = pi/180._r8                 ! radians to degrees
+   real(r8), parameter, public ::  d2r  = pi/180._r8                 ! radians to degrees
 
    real(r8) :: emis_fact_in_coarse_mode = unset_r8  ! tuning parameter for distribution of dust emissions between modes
-   real(r8), public :: emis_fraction_in_mode(numberOfDustModes) 
+   real(r8), public    :: emis_fraction_in_mode(numberOfDustModes) 
 
 !=============================================================================
 contains
@@ -68,7 +67,7 @@ contains
       integer                     :: unitn, ierr
       character(len=*), parameter :: subname = 'dust_readnl'
 
-      namelist /dust_nl/ dust_emis_fact, soil_erod_file,  emis_fact_in_coarse_mode  
+      namelist /dust_nl/ dust_emis_fact, soil_erod_file, emis_fact_in_coarse_mode  
       !---------------------------------------------------------------------------
 
       ! Read namelist
@@ -103,6 +102,15 @@ contains
       if (emis_fact_in_coarse_mode == unset_r8) then 
          call endrun(subname//" emis_fact_in_coarse_mode not set")
       endif
+
+      if (dust_emis_fact == unset_r8) then
+         call endrun(subname//" dust_emis_fact not set")
+      end if
+
+      if (emis_fact_in_coarse_mode < 0.0_r8 .or. emis_fact_in_coarse_mode > 1.0_r8) then
+         call endrun(subname//" emis_fact_in_coarse_mode should be between 0 and 1")
+      end if
+      
       call shr_dust_emis_readnl(mpicom, 'drv_flds_in')
 
       if ((soil_erod_file /= 'none') .and. &
@@ -122,8 +130,9 @@ contains
             write(iulog, *) subname, ': dust_emis_fact = ', dust_emis_fact
          else
             write(iulog,*) subname,': Leung_2023 dust emission method is being used.'
+            write(iulog,*) subname,': dust_emis_fact = ', dust_emis_fact
          end if
-         write(iulog,*) 'emis_fact_in_coarse_mode = ', emis_fact_in_coarse_mode
+            write(iulog,*) 'emis_fact_in_coarse_mode = ', emis_fact_in_coarse_mode
       end if
 
    end subroutine oslo_aero_dust_readnl
@@ -136,7 +145,7 @@ contains
       integer :: imode
 
       if (is_zender_soil_erod_from_atm()) then
-         call soil_erod_init( dust_emis_fact, soil_erod_file )
+         call soil_erod_init()
       end if
 
       ! Set module variables
@@ -208,11 +217,7 @@ contains
    end subroutine oslo_aero_dust_emis
 
    !=============================================================================
-   subroutine soil_erod_init( dust_emis_fact, soil_erod_file )
-
-      ! arguments
-      real(r8),         intent(in) :: dust_emis_fact
-      character(len=*), intent(in) :: soil_erod_file
+   subroutine soil_erod_init()
 
       ! localvaraibles
       real(r8), allocatable :: soil_erodibility_in(:,:)
@@ -227,12 +232,10 @@ contains
       real(r8), parameter   :: zero=0._r8
       real(r8), parameter   :: twopi=2._r8*pi
 
-      soil_erod_fact = dust_emis_fact
-
       ! Summary to log file
       if (masterproc) then
          write(iulog,*) 'soil_erod_mod: soil erodibility dataset: ', trim(soil_erod_file)
-         write(iulog,*) 'soil_erod_mod: soil_erod_fact = ', soil_erod_fact
+         write(iulog,*) 'soil_erod_mod: dust_emis_fact = ', dust_emis_fact
       end if
 
       ! read in soil erodibility factors, similar to Zender's boundary conditions
